@@ -149,6 +149,9 @@ every endpoint called, and each replay prints its own requests and CU.
   wallet's first fill. It ends 30 bars after its last fill, or runs to now
   while the wallet still holds. Timeframes go from 1m to 1D, capped at 8,000
   candles, and full token history is one click away.
+- **Price or market cap.** The Chart tab switches the axis. Market cap is
+  price × circulating supply from Token Market Data, so candles keep their
+  shape and the labels, price tag, average-cost line and popups read in MC.
 - **Trader header.** The token's logo and ticker, the wallet's avatar and its
   Birdeye label ("trader" when it has none), live PnL with its multiple pill
   (`17x`), then Invested, Entry MC and Sold. The definitions are in

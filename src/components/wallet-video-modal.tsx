@@ -41,7 +41,7 @@ import {
   type ReplayRange,
 } from "@/lib/replay-window";
 import { DEFAULT_SOUND, LiveCuePlayer, loadSamples, renderSoundtrack, type SoundSettings } from "@/lib/video-audio";
-import { drawMessage, drawVideoFrame, type VideoScene } from "@/lib/video-frame";
+import { drawMessage, drawVideoFrame, type ChartAxis, type VideoScene } from "@/lib/video-frame";
 import { barTime, cueSchedule, fillBursts, videoTimeline } from "@/lib/video-scene";
 import { loadTokenLogo } from "@/lib/token-logo";
 import { walletRole, walletStory, walletTags } from "@/lib/wallet-tags";
@@ -347,6 +347,9 @@ export function WalletVideoModal({
   const [durationDraft, setDurationDraft] = useState("15");
   const [holdSeconds, setHoldSeconds] = useState(1.1);
   const [quoteUnit, setQuoteUnit] = useState<QuoteUnit>("USDC");
+  const supplyKnown = (data.market?.circulatingSupply ?? 0) > 0;
+  const [axisChoice, setAxisChoice] = useState<ChartAxis>("price");
+  const axis: ChartAxis = supplyKnown ? axisChoice : "price";
   const [effectsOn, setEffectsOn] = useState(true);
   const [markersOn, setMarkersOn] = useState(true);
   const [sound, setSound] = useState<SoundSettings>(DEFAULT_SOUND);
@@ -567,7 +570,8 @@ export function WalletVideoModal({
     walletRole: role,
     tags,
     circulatingSupply: data.market?.circulatingSupply,
-  } : null, [basis, bins, bursts, data.market, data.solPriceUsd, data.token.symbol, effectsOn, events, holdSeconds, logo, markersOn, pnlPath, quoteUnit, replayRow, role, row.wallet, series, shape, tags, timeline, tokenLogo]);
+    axis,
+  } : null, [axis, basis, bins, bursts, data.market, data.solPriceUsd, data.token.symbol, effectsOn, events, holdSeconds, logo, markersOn, pnlPath, quoteUnit, replayRow, role, row.wallet, series, shape, tags, timeline, tokenLogo]);
 
   useEffect(() => {
     void findVideoEncoder().then(setEncoder);
@@ -857,6 +861,16 @@ export function WalletVideoModal({
                   {series ? `${day(series.from)} → ${day(series.to)} UTC` : "Waiting for wallet history…"}
                   {effectiveRange === "wallet" && activity ? ` · ${activity.holding ? "first fill → now (still holding)" : "first fill → last fill"} · ${PAD_BARS} bars of context` : ""}
                 </p>
+                <Label className="field-label">Chart axis <small>{supplyKnown ? "market cap = price × circulating supply" : "market cap needs supply data"}</small></Label>
+                <Segmented
+                  label="Chart axis"
+                  options={["price", "mcap"] as const}
+                  value={axis}
+                  onChange={changed(setAxisChoice)}
+                  disabled={busy}
+                  isDisabled={(option) => option === "mcap" && !supplyKnown}
+                  render={(option) => (option === "price" ? "Price" : "Market cap")}
+                />
                 <Label className="field-label">Candles <small>{timeframeLoading ? `fetching ${timeframe}…` : series ? `${series.candles.length.toLocaleString()} × ${series.timeframe}` : ""}</small></Label>
                 <Segmented
                   label="Candle timeframe"
@@ -1024,7 +1038,7 @@ export function WalletVideoModal({
             <section className="panel-group export-group">
               <Button size="lg" className="w-full" onClick={() => void exportVideo()} disabled={busy || timeframeLoading || replayLoading || !scene || !encoder || encoder === "probing"}>
                 <DownloadSimple size={17} weight="bold" />
-                {rendering ? `Rendering ${Math.round(renderProgress * 100)}%` : encoder === "probing" ? "Checking encoder…" : encoder ? `Export ${encoder.ext.toUpperCase()} · ${VIDEO_FORMATS[shape].width}×${VIDEO_FORMATS[shape].height}` : "Video export unavailable"}
+                {rendering ? `Rendering ${Math.round(renderProgress * 100)}%` : encoder === "probing" ? "Checking encoder…" : encoder ? `Export ${encoder.ext.toUpperCase()} · ${VIDEO_FORMATS[shape].width}×${VIDEO_FORMATS[shape].height} · ${fps} fps` : "Video export unavailable"}
               </Button>
               {rendering && (
                 <div className="video-progress">

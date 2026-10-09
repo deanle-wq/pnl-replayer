@@ -17,6 +17,7 @@ import {
   type FillBurst,
   type VideoTimeline,
 } from "./video-scene";
+import { identicon } from "./identicon";
 import { entryMarketCap, formatMultiple, type WalletTag } from "./wallet-tags";
 import { tradeValueInUnit, walletTradeTotals, walletVideoMetrics, type QuoteUnit } from "./wallet-video-metrics";
 
@@ -169,7 +170,14 @@ export interface VideoScene {
   tags?: WalletTag[];
   /** Turns the average entry price into an entry market cap. */
   circulatingSupply?: number;
+  /**
+   * Chart labels in price or market cap. Market cap is price × circulating
+   * supply, so the candles keep their shape and only the labels change.
+   */
+  axis?: ChartAxis;
 }
+
+export type ChartAxis = "price" | "mcap";
 
 function walletLabel(wallet: string): string {
   return `${wallet.slice(0, 6)}…${wallet.slice(-6)}`;
@@ -319,44 +327,20 @@ function heroUsd(value: number): string {
   return `${value < 0 ? "−" : "+"}${body}`;
 }
 
-function hash(text: string): number {
-  let value = 2_166_136_261;
-  for (let i = 0; i < text.length; i += 1) {
-    value ^= text.charCodeAt(i);
-    value = Math.imul(value, 16_777_619);
-  }
-  return value >>> 0;
-}
-
-/**
- * A 5×5 mirrored block avatar seeded by the address, kept to the brand's
- * green–teal range, so the same wallet always wears the same face.
- */
+/** The wallet's identicon (shared with the app) clipped to a circle. */
 function drawIdenticon(ctx: CanvasRenderingContext2D, wallet: string, x: number, y: number, size: number) {
-  let seed = hash(wallet) || 1;
-  const next = () => {
-    seed ^= seed << 13;
-    seed ^= seed >>> 17;
-    seed ^= seed << 5;
-    return (seed >>> 0) / 4_294_967_296;
-  };
-  const hue = 150 + next() * 34;
+  const face = identicon(wallet);
   ctx.save();
   ctx.beginPath();
   ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
   ctx.clip();
-  ctx.fillStyle = `hsl(${hue.toFixed(0)}, 42%, 13%)`;
+  ctx.fillStyle = face.background;
   ctx.fillRect(x, y, size, size);
   const cell = size / 6;
-  ctx.fillStyle = `hsl(${(hue + next() * 12).toFixed(0)}, 88%, ${(52 + next() * 14).toFixed(0)}%)`;
-  for (let row = 0; row < 5; row += 1) {
-    for (let column = 0; column < 3; column += 1) {
-      if (next() < 0.5) continue;
-      const top = y + cell * (0.5 + row);
-      ctx.fillRect(x + cell * (0.5 + column), top, cell + 0.5, cell + 0.5);
-      ctx.fillRect(x + cell * (4.5 - column), top, cell + 0.5, cell + 0.5);
-    }
-  }
+  ctx.fillStyle = face.foreground;
+  face.cells.forEach((row, rowIndex) => row.forEach((on, column) => {
+    if (on) ctx.fillRect(x + cell * (0.5 + column), y + cell * (0.5 + rowIndex), cell + 0.5, cell + 0.5);
+  }));
   ctx.restore();
   ctx.beginPath();
   ctx.arc(x + size / 2, y + size / 2, size / 2 - 1, 0, Math.PI * 2);
@@ -629,6 +613,9 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
     ? { label: "ENTRY MC", text: compactUsd(entryCap) }
     : { label: "AVG ENTRY", text: entryPrice > 0 ? formatPrice(entryPrice) : "—" };
   const role = scene.walletRole ?? "trader";
+  const supply = scene.circulatingSupply ?? 0;
+  const mcapAxis = scene.axis === "mcap" && supply > 0;
+  const axisLabel = (price: number) => (mcapAxis ? compactUsd(price * supply) : formatPrice(price));
 
   // ── Header: token, wallet, PnL with its multiple, then the three stats ─
   const S = L.size;
@@ -735,7 +722,7 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
     ctx.fillStyle = C.text3;
     ctx.font = font(500, S.axis);
     ctx.textAlign = "right";
-    ctx.fillText(formatPrice(price), R.x + R.w, y - S.axis * 0.45);
+    ctx.fillText(axisLabel(price), R.x + R.w, y - S.axis * 0.45);
     ctx.textAlign = "left";
   }
 
@@ -774,7 +761,7 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
     ctx.lineTo(headX, y);
     ctx.stroke();
     ctx.setLineDash([]);
-    caption(ctx, `AVG COST ${formatPrice(metrics.avgCostUsd)}`, R.x, y - S.axis * 0.5, S.axis * 0.85, C.text3);
+    caption(ctx, mcapAxis ? `AVG ENTRY MC ${axisLabel(metrics.avgCostUsd)}` : `AVG COST ${axisLabel(metrics.avgCostUsd)}`, R.x, y - S.axis * 0.5, S.axis * 0.85, C.text3);
   }
 
   // Live price: dashed to the edge, tagged.
@@ -787,7 +774,7 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.font = font(600, S.axis);
-  const tag = formatPrice(currentPrice);
+  const tag = mcapAxis ? `MC ${axisLabel(currentPrice)}` : axisLabel(currentPrice);
   const tagW = ctx.measureText(tag).width + S.axis * 1.1;
   const tagH = S.axis * 1.7;
   roundRect(ctx, R.x + R.w - tagW, priceY - tagH / 2, tagW, tagH, 4);
@@ -894,7 +881,7 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
     const fills = values.buys + values.sells;
     const sub = fills > 1
       ? [values.buys ? `${values.buys} buy${values.buys > 1 ? "s" : ""}` : "", values.sells ? `${values.sells} sell${values.sells > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ")
-      : `at ${formatPrice(currentPrice)}`;
+      : `at ${axisLabel(currentPrice)}${mcapAxis ? " MC" : ""}`;
     ctx.font = font(500, S.labelSub);
     ctx.fillStyle = C.text2;
     ctx.textAlign = "center";
