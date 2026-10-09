@@ -173,8 +173,8 @@ every endpoint called, and each replay prints its own requests and CU.
 - **Result card.** A framed card over the dimmed chart. The total counts up
   and lands with a punch and sparks, the multiple counts with it, and up to
   two tags pop in (💎 Diamond hands, 🚀 Moonshot, 💰 Took profits and
-  [others](./docs/PNL_METHODOLOGY.md#tags)). Below: Invested, Entry MC, Sold,
-  realized and unrealized PnL, trade counts and the PnL curve.
+  [others](./docs/PNL_METHODOLOGY.md#tags)). Below: Invested, Entry MC,
+  realized PnL, unrealized PnL and the PnL curve.
 - **Token logos.** Loaded in the browser with CORS, so the canvas stays
   exportable. Arweave and IPFS logos load directly; other hosts go through
   the open [wsrv.nl](https://wsrv.nl) image proxy, and a monogram stands in

@@ -92,7 +92,7 @@ function layoutFor(shape: VideoShape): Layout {
       headAt: 0.6,
       priceTop: 0.06,
       priceBottom: 0.24,
-      card: { maxW: 936, pad: 56, columns: 3, curve: 300, radius: 40 },
+      card: { maxW: 936, pad: 56, columns: 2, curve: 300, radius: 40 },
       size: {
         token: 84, symbol: 56, wallet: 28, role: 17, caption: 22, pnl: 132, pill: 58, statCaption: 21, statValue: 50,
         label: 74, labelSub: 28, axis: 22, footer: 24, logo: 44,
@@ -112,7 +112,7 @@ function layoutFor(shape: VideoShape): Layout {
       headAt: 0.62,
       priceTop: 0.3,
       priceBottom: 0.06,
-      card: { maxW: 960, pad: 40, columns: 3, curve: 130, radius: 28 },
+      card: { maxW: 960, pad: 40, columns: 4, curve: 170, radius: 28 },
       size: {
         token: 60, symbol: 42, wallet: 21, role: 13, caption: 17, pnl: 88, pill: 40, statCaption: 16, statValue: 34,
         label: 56, labelSub: 22, axis: 18, footer: 19, logo: 34,
@@ -131,7 +131,7 @@ function layoutFor(shape: VideoShape): Layout {
     headAt: 0.66,
     priceTop: 0.3,
     priceBottom: 0.06,
-    card: { maxW: 1400, pad: 52, columns: 6, curve: 150, radius: 32 },
+    card: { maxW: 1400, pad: 52, columns: 4, curve: 150, radius: 32 },
     size: {
       token: 72, symbol: 52, wallet: 24, role: 15, caption: 20, pnl: 112, pill: 50, statCaption: 19, statValue: 42,
       label: 62, labelSub: 24, axis: 20, footer: 22, logo: 38,
@@ -985,15 +985,12 @@ function drawOutro(
   const invested = values.totalsUsd.bought;
   const raw = invested > 0 ? (invested + total) / invested : null;
   const multiple = raw !== null && raw >= 0 ? raw : null;
-  const buys = scene.events.filter((event) => event.kind === "buy").length;
-  const sells = scene.events.filter((event) => event.kind === "sell").length;
+  // Four figures only: what went in, where it entered, and the PnL split.
   const stats = [
-    { label: "INVESTED", text: values.unitText(values.totals.bought * count), color: C.text, number: true },
-    { label: values.entry.label, text: values.entry.text, color: C.text, number: true },
-    { label: "SOLD", text: values.unitText(values.totals.sold * count), color: values.totals.sold > 0 ? C.brand : C.text, number: true },
-    { label: "REALIZED", text: signedUsd(scene.row.realizedUsd * count), color: pnlColor(scene.row.realizedUsd), number: true },
-    { label: "UNREALIZED", text: signedUsd(scene.row.unrealizedUsd * count), color: pnlColor(scene.row.unrealizedUsd), number: true },
-    { label: "TRADES", text: buys + sells > 0 ? `${buys} B · ${sells} S` : `${scene.row.buys} B · ${scene.row.sells} S`, color: C.text, number: false },
+    { label: "INVESTED", text: values.unitText(values.totals.bought * count), color: C.text },
+    { label: values.entry.label, text: values.entry.text, color: C.text },
+    { label: "REALIZED PNL", text: signedUsd(scene.row.realizedUsd * count), color: pnlColor(scene.row.realizedUsd) },
+    { label: "UNREALIZED PNL", text: signedUsd(scene.row.unrealizedUsd * count), color: pnlColor(scene.row.unrealizedUsd) },
   ];
   const path = scene.pnlPath ?? [];
   const cardW = Math.min(w - L.pad * 2, K.maxW);
@@ -1133,13 +1130,7 @@ function drawOutro(
     const statFit = Math.min(1, (cellW * 0.9) / Math.max(numberWidth(ctx, stat.text), 1));
     ctx.font = font(700, S.outroStat * statFit);
     ctx.fillStyle = stat.color;
-    if (stat.number) {
-      drawNumber(ctx, stat.text, cx, cy + S.outroKicker * 0.8 + S.outroStat * 1.2, "center");
-    } else {
-      ctx.textAlign = "center";
-      ctx.fillText(stat.text, cx, cy + S.outroKicker * 0.8 + S.outroStat * 1.2);
-      ctx.textAlign = "left";
-    }
+    drawNumber(ctx, stat.text, cx, cy + S.outroKicker * 0.8 + S.outroStat * 1.2, "center");
   });
   y += statRows * statH;
 
