@@ -17,6 +17,7 @@ function ohlcvItems(response: unknown): number {
 const COSTS: Record<string, CostRule> = {
   "/defi/v3/token/meta-data/single": fixed(3),
   "/defi/price": fixed(3),
+  "/defi/v3/token/market-data": fixed(10),
   "/defi/v3/ohlcv": ({ response }) => {
     const items = ohlcvItems(response);
     if (items <= 100) return 25;

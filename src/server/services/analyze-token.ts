@@ -63,6 +63,8 @@ export interface TokenAnalysis {
   token: { mint: string; name?: string; symbol?: string; logo?: string; decimals?: number };
   solPriceUsd: number;
   spotPriceUsd: number;
+  /** Circulating supply and market cap, for entry market cap in the video. */
+  market?: { circulatingSupply: number; marketCapUsd: number; holders: number };
   generatedAt: number;
   methodology: "wac+balance-reconciliation";
   candles: BirdeyeCandle[];
@@ -131,10 +133,12 @@ async function analyzeTokenUncached(mint: string, requestedAudit: number | undef
   const candidatesPerLens = Math.max(10, Math.min(30, Number(process.env.CANDIDATES_PER_LENS ?? 10)));
   const now = Math.floor(Date.now() / 1_000);
 
-  const [metadata, solPriceUsd, tokenPriceUsd, ...rankings] = await Promise.all([
+  const [metadata, solPriceUsd, tokenPriceUsd, market, ...rankings] = await Promise.all([
     client.tokenMetadata(mint),
     client.tokenPrice("So11111111111111111111111111111111111111112"),
     client.tokenPrice(mint),
+    // Optional enrichment: a plan without market data still gets a board.
+    client.tokenMarketData(mint).catch(() => null),
     client.topTraders(mint, "total_pnl", "desc", candidatesPerLens),
     client.topTraders(mint, "total_pnl", "asc", candidatesPerLens),
     client.topTraders(mint, "realized_pnl", "desc", candidatesPerLens),
@@ -193,6 +197,7 @@ async function analyzeTokenUncached(mint: string, requestedAudit: number | undef
     methodology: "wac+balance-reconciliation",
     solPriceUsd,
     spotPriceUsd,
+    market: market ?? undefined,
     candles,
     board,
     usage: client.usage(),

@@ -19,14 +19,15 @@ Birdeye Data handles for you, what it costs and where to extend it.
 
 ## Measured cost
 
-BONK, measured 2026-10-08 with the in-app meter. CU values come from Birdeye's
+BONK, measured with the in-app meter (board 2026-10-09, audit 2026-10-08). CU
+values come from Birdeye's
 [published compute-unit table](https://data.birdeye.so/docs/guides/what-is-compute-unit-cost.md).
 
 | Step | Requests | CU |
 |---|---:|---:|
-| Board (6 Top Traders lenses, Wallet PnL Multiple, OHLCV, price, metadata) | 11 | 884 |
+| Board (6 Top Traders lenses, Wallet PnL Multiple, OHLCV, price, metadata, market data) | 12 | 894 |
 | Ledger audit of the leading wallet (17 balance-change pages, 48 trade buckets, OHLCV) | 66 | 821 |
-| **One full analysis** | **77** | **1,705** |
+| **One full analysis** | **78** | **1,715** |
 
 Opening a wallet's video builds its full ledger. A 68-trade wallet took
 32 requests, 389 CU and about 6 s (`npm run audit -- <mint> <wallet>` prints
@@ -66,8 +67,9 @@ Ordered by value for a demo. Item 1 is planned for phase 2.
 2. **Wallet names.** Batch the board through `/identity/v1/multiple`
    (ceil(30 × n^0.8) CU, up to 100 addresses; needs a Premium plan) and show
    exchange and KOL labels.
-3. **Market-cap axis.** Multiply candles by supply from Token Overview. Meme
-   traders read "$1.2M MC" faster than a sub-cent price.
+3. **Market-cap axis.** Multiply candles by the circulating supply the board
+   already reads from Token Market Data (the card's Entry MC does this for
+   one number). Meme traders read "$1.2M MC" faster than a sub-cent price.
 4. **Production guards.** Use a shared cache, a job queue for heavy wallets,
    and CU ceilings per IP, per wallet and per day, with a pre-flight cost
    check before expensive work.
@@ -89,7 +91,7 @@ Ordered by value for a demo. Item 1 is planned for phase 2.
 - **Icons.** [Phosphor](https://phosphoricons.com).
 - **Video.** Follows the social-channel rules: Geist only, with the corner
   glow, grain and glass chips of the campaign art. Red appears only for losses
-  and sells, always paired with a sign, a label, or a ▲/▼ shape.
+  and sells, always paired with a sign, a label, or a B/S badge.
 
 ## Video architecture
 
@@ -100,3 +102,5 @@ Ordered by value for a demo. Item 1 is planned for phase 2.
 | `src/lib/video-audio.ts` | Synthesised sound effects. The same graph runs live (`AudioContext`) and offline (`OfflineAudioContext`) |
 | `src/lib/wallet-video.ts` | Frame-by-frame mediabunny export with an AAC or Opus track |
 | `src/lib/replay-window.ts` | The wallet's own chart window, and bar placement that never drops a fill |
+| `src/lib/wallet-tags.ts` | Card vocabulary: invested, entry market cap, sold, the multiple and achievement tags. Unit tested |
+| `src/lib/token-logo.ts` | Loads the token logo with CORS (direct, then an image proxy) so the canvas stays exportable |

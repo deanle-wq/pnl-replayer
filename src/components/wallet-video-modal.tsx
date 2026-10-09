@@ -43,6 +43,8 @@ import {
 import { DEFAULT_SOUND, LiveCuePlayer, loadSamples, renderSoundtrack, type SoundSettings } from "@/lib/video-audio";
 import { drawMessage, drawVideoFrame, type VideoScene } from "@/lib/video-frame";
 import { barTime, cueSchedule, fillBursts, videoTimeline } from "@/lib/video-scene";
+import { loadTokenLogo } from "@/lib/token-logo";
+import { walletRole, walletStory, walletTags } from "@/lib/wallet-tags";
 import {
   downloadVideo,
   encodeWalletVideo,
@@ -53,7 +55,7 @@ import {
   type VideoEncoderChoice,
   type VideoShape,
 } from "@/lib/wallet-video";
-import { walletVideoMetrics, type QuoteUnit } from "@/lib/wallet-video-metrics";
+import { walletTradeTotals, walletVideoMetrics, type QuoteUnit } from "@/lib/wallet-video-metrics";
 import type { BirdeyeCandle } from "@/server/birdeye/types";
 import type { ApiUsage } from "@/server/birdeye/usage";
 import type { LedgerEvent } from "@/server/pnl/ledger";
@@ -353,6 +355,7 @@ export function WalletVideoModal({
   const [error, setError] = useState("");
   const [generated, setGenerated] = useState<{ url: string; name: string } | null>(null);
   const [logo, setLogo] = useState<HTMLImageElement | null>(null);
+  const [tokenLogo, setTokenLogo] = useState<HTMLImageElement | null>(null);
   const [fontsReady, setFontsReady] = useState(false);
   const timeline = useMemo(() => videoTimeline(clipSeconds), [clipSeconds]);
 
@@ -371,6 +374,16 @@ export function WalletVideoModal({
       image.onload = null;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadTokenLogo(data.token.logo).then((image) => {
+      if (!cancelled) setTokenLogo(image);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [data.token.logo]);
 
   // One audio context for the editor's life, opened as soon as it mounts:
   // the click that opened the editor already counts as a user gesture.
@@ -500,6 +513,33 @@ export function WalletVideoModal({
   const basis = replay?.mode === "audited" && replayRow.audit
     ? `Ledger PnL · ${replayRow.audit.confidence} confidence`
     : replay?.mode === "summary" ? "Birdeye WAC summary" : "Estimated PnL path · Birdeye WAC totals";
+  // The card's tags read the final numbers: full cash flows, Birdeye's
+  // average costs unless the clip replays a complete ledger.
+  const tags = useMemo(() => {
+    if (!replay) return [];
+    const final = walletTradeTotals({ row: replayRow, events, currentEvents: events, reveal: 1, unit: "USDC", solPriceUsd: data.solPriceUsd });
+    const story = walletStory({
+      investedUsd: final.bought,
+      soldUsd: final.sold,
+      totalUsd: replayRow.totalUsd,
+      realizedUsd: replayRow.realizedUsd,
+      unrealizedUsd: replayRow.unrealizedUsd,
+      events: replay.mode === "audited" ? events : NO_EVENTS,
+      avgBuyPriceUsd: replayRow.avgBuyPrice,
+      avgSellPriceUsd: replayRow.avgSellPrice,
+      circulatingSupply: data.market?.circulatingSupply,
+      buys: replayRow.buys,
+      sells: replayRow.sells,
+    });
+    return walletTags(story, {
+      holding: replayRow.holding > 0,
+      currentPriceUsd: data.spotPriceUsd,
+      currentMarketCapUsd: data.market?.marketCapUsd,
+      birdeyeTags: baseRow.tags,
+    });
+  }, [baseRow.tags, data.market, data.solPriceUsd, data.spotPriceUsd, events, replay, replayRow]);
+  const role = walletRole(baseRow.tags);
+
   const scene = useMemo<VideoScene | null>(() => series ? {
     shape,
     symbol: data.token.symbol ?? "TOKEN",
@@ -519,7 +559,11 @@ export function WalletVideoModal({
     basis,
     logo,
     pnlPath,
-  } : null, [basis, bins, bursts, data.solPriceUsd, data.token.symbol, effectsOn, events, holdSeconds, logo, markersOn, pnlPath, quoteUnit, replayRow, row.wallet, series, shape, timeline]);
+    tokenLogo,
+    walletRole: role,
+    tags,
+    circulatingSupply: data.market?.circulatingSupply,
+  } : null, [basis, bins, bursts, data.market, data.solPriceUsd, data.token.symbol, effectsOn, events, holdSeconds, logo, markersOn, pnlPath, quoteUnit, replayRow, role, row.wallet, series, shape, tags, timeline, tokenLogo]);
 
   useEffect(() => {
     void findVideoEncoder().then(setEncoder);
@@ -748,8 +792,8 @@ export function WalletVideoModal({
             </div>
             <div className="replay-facts">
               <div className="video-legend" aria-label="Trade marker legend">
-                <span><i className="buy" aria-hidden="true" />Buy</span>
-                <span><i className="sell" aria-hidden="true" />Sell</span>
+                <span><i className="buy" aria-hidden="true">B</i>Buy</span>
+                <span><i className="sell" aria-hidden="true">S</i>Sell</span>
                 <b>
                   {replayLoading
                     ? "Building wallet ledger…"

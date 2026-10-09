@@ -23,14 +23,15 @@ render in the browser with no server.
 
 1. **Trader board.** Paste a token mint. Six Birdeye Top Traders rankings are
    unioned (winners, losers, volume, holders) and scored with Birdeye Wallet
-   PnL (weighted average cost).
+   PnL (weighted average cost), with each wallet's Invested and multiple.
 2. **Ledger audit.** Any wallet can be rebuilt from its own balance changes,
    joined to decoded swaps by transaction signature. Each audit gets a
    high, medium or low confidence grade and a delta against Birdeye's number.
 3. **PnL video.** Each row opens a clip editor. It replays the wallet's own
-   trading window candle by candle: buys and sells pop up, PnL runs live, and
-   it ends on a game-style result card. Export MP4 or WebM in 16:9, 9:16 or
-   1:1 at 1080p, with sound, rendered in the browser.
+   trading window candle by candle: buys and sells pop up, PnL and its
+   multiple run live next to Invested, Entry MC and Sold, and it ends on a
+   game-style result card with the wallet's tags. Export MP4 or WebM in 16:9,
+   9:16 or 1:1 at 1080p, with sound, rendered in the browser.
 
 ## Quick start
 
@@ -102,7 +103,7 @@ Firewall rate-limit rule.
 
 ```text
 mint
- ├─ Token Metadata · Price · OHLCV V3 ────────────────── chart and spot mark
+ ├─ Token Metadata · Market Data · Price · OHLCV V3 ──── chart, logo, supply, spot mark
  └─ Top Traders × 6 lenses ─ union ─ Wallet PnL Multiple (WAC) ─ board
                                          │
               any wallet (board audit or "Video") ───┐
@@ -131,11 +132,12 @@ in [API_MAPPING.md](./docs/API_MAPPING.md).
 | `/wallet/v2/balance-change` | Ledger quantities | 10 |
 | `/defi/v3/token/txs` | Swap side and USD price | 12 |
 | `/defi/v3/ohlcv` | Charts and replay candles | 25–100 |
-| `/defi/price`, `/defi/v3/token/meta-data/single` | Spot mark, token name | 3 |
+| `/defi/v3/token/market-data` | Circulating supply (Entry MC), market cap, holders | 10 |
+| `/defi/price`, `/defi/v3/token/meta-data/single` | Spot mark, token name and logo | 3 |
 
-Measured on BONK (2026-10-08):
+Measured on BONK (board 2026-10-09, everything else 2026-10-08):
 
-- A board plus the leading wallet's audit costs 77 requests and about 1,705 CU.
+- A board plus the leading wallet's audit costs 78 requests and about 1,715 CU.
 - A 68-trade wallet's video ledger costs 32 requests and 389 CU.
 
 The app shows these figures live. A **Built on Birdeye Data API** panel lists
@@ -147,9 +149,13 @@ every endpoint called, and each replay prints its own requests and CU.
   wallet's first fill. It ends 30 bars after its last fill, or runs to now
   while the wallet still holds. Timeframes go from 1m to 1D, capped at 8,000
   candles, and full token history is one click away.
-- **Every fill plotted.** Each fill appears as a ▲ or ▼ marker, alongside an
-  average-cost line and a live price tag. Fills inside missing candles snap to
-  the nearest drawn bar.
+- **Trader header.** The token's logo and ticker, the wallet's avatar and its
+  Birdeye label ("trader" when it has none), live PnL with its multiple pill
+  (`17x`), then Invested, Entry MC and Sold. The definitions are in
+  [PNL_METHODOLOGY.md](./docs/PNL_METHODOLOGY.md#card-vocabulary).
+- **Every fill plotted.** Each fill appears as a B or S badge on its candle,
+  alongside an average-cost line and a live price tag. Fills inside missing
+  candles snap to the nearest drawn bar.
 - **When swaps are missing.** Sometimes Token Transactions returns far fewer
   decoded swaps than the trades Birdeye counts. The markers then come from the
   wallet's balance changes, priced from OHLCV and labelled as inferred, and
@@ -164,9 +170,15 @@ every endpoint called, and each replay prints its own requests and CU.
   - **Clean**: synthesised blips, a till sound, milestone fanfares and a
     result sting.
   - Both packs are mixed into the export.
-- **Result card.** The total counts up and lands with a punch and sparks.
-  The card shows ROI, total buy and sell, realized PnL, trade counts and the
-  PnL curve across the replay.
+- **Result card.** A framed card over the dimmed chart. The total counts up
+  and lands with a punch and sparks, the multiple counts with it, and up to
+  two tags pop in (💎 Diamond hands, 🚀 Moonshot, 💰 Took profits and
+  [others](./docs/PNL_METHODOLOGY.md#tags)). Below: Invested, Entry MC, Sold,
+  realized and unrealized PnL, trade counts and the PnL curve.
+- **Token logos.** Loaded in the browser with CORS, so the canvas stays
+  exportable. Arweave and IPFS logos load directly; other hosts go through
+  the open [wsrv.nl](https://wsrv.nl) image proxy, and a monogram stands in
+  when neither works.
 - **Formats.** 16:9, 9:16 or 1:1, 5–300 s, rendered frame by frame at 30 fps
   and about 6–8 Mbps.
 
@@ -194,6 +206,8 @@ pnl-replayer/
 │   │   ├── video-scene.ts       timeline, popups, sound cues, number formats
 │   │   ├── video-audio.ts       sound packs, live and offline rendering
 │   │   ├── wallet-video.ts      WebCodecs/Mediabunny encoder
+│   │   ├── wallet-tags.ts       invested, entry MC, multiple, tags
+│   │   ├── token-logo.ts        CORS-safe token logo loader
 │   │   └── replay-window.ts     wallet window and fill placement
 │   ├── server/
 │   │   ├── birdeye/             typed client, offset pagination, CU meter

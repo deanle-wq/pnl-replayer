@@ -158,6 +158,20 @@ export class BirdeyeClient {
     return response.data ?? null;
   }
 
+  /** Supply and market cap; the video derives entry market cap from it. */
+  async tokenMarketData(mint: string): Promise<{ circulatingSupply: number; marketCapUsd: number; holders: number } | null> {
+    const response = await this.request<{
+      data?: { circulating_supply?: number; market_cap?: number; holder?: number };
+    }>("GET", "/defi/v3/token/market-data", { query: { address: mint } });
+    const data = response.data;
+    if (!data) return null;
+    return {
+      circulatingSupply: Number(data.circulating_supply) || 0,
+      marketCapUsd: Number(data.market_cap) || 0,
+      holders: Number(data.holder) || 0,
+    };
+  }
+
   async tokenPrice(mint: string): Promise<number> {
     const response = await this.request<{
       success?: boolean;

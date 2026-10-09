@@ -201,6 +201,14 @@ h1 { margin: 0; font-size: clamp(40px, 5.4vw, 72px); line-height: 1.02; letter-s
 .token-symbol { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; color: var(--bds-brand); font-size: 14px; font-weight: 600; }
 .token-header h2 { margin: 0 0 8px; font-size: clamp(28px, 3.4vw, 48px); line-height: 1.1; letter-spacing: -0.03em; font-weight: 600; }
 .token-header code { color: var(--bds-text-subtle); font-size: 12px; overflow-wrap: anywhere; }
+.token-identity { display: flex; align-items: flex-start; gap: 18px; min-width: 0; }
+.token-identity > div { min-width: 0; }
+.token-avatar { flex: none; width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--bds-border-default); background: var(--bds-bg-raised); object-fit: cover; }
+.token-avatar.monogram { display: grid; place-items: center; color: var(--bds-brand); font-size: 22px; font-weight: 800; }
+.multiple-pill { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; font: 700 11px/1.5 var(--font-mono); font-variant-numeric: tabular-nums; vertical-align: 1px; }
+.multiple-pill.win { background: var(--bds-brand); color: #03140d; }
+.multiple-pill.loss { border: 1px solid var(--bds-status-error); color: #fca5a5; }
+.token-market { margin: 0 0 8px; color: var(--bds-text-secondary); font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; }
 .audit-counts { display: flex; border: 1px solid var(--bds-border-default); border-radius: var(--bds-radius-lg); }
 .audit-counts div { min-width: 92px; padding: 12px 16px; border-right: 1px solid var(--bds-border-default); }
 .audit-counts div:last-child { border-right: 0; }
@@ -267,9 +275,9 @@ td.rank { color: var(--bds-text-subtle); font-family: var(--font-mono); }
 .replay-facts { display: grid; gap: 6px; }
 .video-legend { display: flex; align-items: center; gap: 16px; color: var(--bds-text-secondary); font-size: 12px; }
 .video-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.video-legend i { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; }
-.video-legend i.buy { border-bottom: 10px solid var(--bds-brand); }
-.video-legend i.sell { border-top: 10px solid var(--bds-status-error); }
+.video-legend i { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; color: #050505; font: 800 10px/1 var(--font-sans); font-style: normal; }
+.video-legend i.buy { background: var(--bds-brand); }
+.video-legend i.sell { background: var(--bds-status-error); }
 .video-legend b { margin-left: auto; color: var(--bds-text-primary); font-weight: 500; }
 .video-note { margin: 0; color: var(--bds-text-subtle); font-size: 12px; line-height: 1.5; }
 .video-note.warn { color: #fcd34d; }

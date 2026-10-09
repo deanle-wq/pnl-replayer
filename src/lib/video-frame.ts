@@ -17,6 +17,7 @@ import {
   type FillBurst,
   type VideoTimeline,
 } from "./video-scene";
+import { entryMarketCap, formatMultiple, type WalletTag } from "./wallet-tags";
 import { tradeValueInUnit, walletTradeTotals, walletVideoMetrics, type QuoteUnit } from "./wallet-video-metrics";
 
 export type VideoShape = "landscape" | "portrait" | "square";
@@ -52,6 +53,7 @@ const C = {
 };
 
 const FONT = 'Geist, "Geist Fallback", ui-sans-serif, system-ui, sans-serif';
+const EMOJI = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 const font = (weight: number, size: number) => `${weight} ${Math.round(size)}px ${FONT}`;
 
 interface Rect { x: number; y: number; w: number; h: number }
@@ -60,17 +62,17 @@ interface Layout {
   pad: number;
   header: Rect;
   chart: Rect;
-  stats: Rect;
   footer: Rect;
-  statColumns: number;
+  /** Portrait stacks identity, PnL and stats; wide formats split them left and right. */
   stackedHeader: boolean;
   labelAt: "top" | "bottom";
   visibleBars: number;
   headAt: number;
   priceTop: number;
   priceBottom: number;
+  card: { maxW: number; pad: number; columns: number; curve: number; radius: number };
   size: {
-    symbol: number; wallet: number; caption: number; pnl: number;
+    token: number; symbol: number; wallet: number; role: number; caption: number; pnl: number; pill: number;
     statCaption: number; statValue: number; label: number; labelSub: number;
     axis: number; footer: number; logo: number;
     outroKicker: number; outroMeta: number; outroPnl: number; outroStat: number;
@@ -81,59 +83,59 @@ function layoutFor(shape: VideoShape): Layout {
   if (shape === "portrait") {
     return {
       pad: 72,
-      header: { x: 72, y: 84, w: 936, h: 330 },
-      chart: { x: 72, y: 450, w: 936, h: 860 },
-      stats: { x: 72, y: 1352, w: 936, h: 300 },
+      header: { x: 72, y: 72, w: 936, h: 430 },
+      chart: { x: 72, y: 540, w: 936, h: 1126 },
       footer: { x: 72, y: 1716, w: 936, h: 130 },
-      statColumns: 2,
       stackedHeader: true,
       labelAt: "bottom",
       visibleBars: 46,
       headAt: 0.6,
       priceTop: 0.06,
       priceBottom: 0.24,
+      card: { maxW: 936, pad: 56, columns: 3, curve: 300, radius: 40 },
       size: {
-        symbol: 54, wallet: 30, caption: 24, pnl: 140, statCaption: 22, statValue: 62, label: 74, labelSub: 28,
-        axis: 22, footer: 24, logo: 44, outroKicker: 26, outroMeta: 34, outroPnl: 176, outroStat: 56,
+        token: 84, symbol: 56, wallet: 28, role: 17, caption: 22, pnl: 132, pill: 58, statCaption: 21, statValue: 50,
+        label: 74, labelSub: 28, axis: 22, footer: 24, logo: 44,
+        outroKicker: 26, outroMeta: 38, outroPnl: 188, outroStat: 58,
       },
     };
   }
   if (shape === "square") {
     return {
       pad: 60,
-      header: { x: 60, y: 48, w: 960, h: 176 },
-      chart: { x: 60, y: 244, w: 960, h: 470 },
-      stats: { x: 60, y: 736, w: 960, h: 150 },
-      footer: { x: 60, y: 930, w: 960, h: 100 },
-      statColumns: 4,
+      header: { x: 60, y: 48, w: 960, h: 214 },
+      chart: { x: 60, y: 286, w: 960, h: 630 },
+      footer: { x: 60, y: 940, w: 960, h: 100 },
       stackedHeader: false,
       labelAt: "top",
       visibleBars: 64,
       headAt: 0.62,
       priceTop: 0.3,
       priceBottom: 0.06,
+      card: { maxW: 960, pad: 40, columns: 3, curve: 130, radius: 28 },
       size: {
-        symbol: 44, wallet: 22, caption: 19, pnl: 96, statCaption: 16, statValue: 40, label: 56, labelSub: 22,
-        axis: 18, footer: 19, logo: 34, outroKicker: 20, outroMeta: 26, outroPnl: 132, outroStat: 40,
+        token: 60, symbol: 42, wallet: 21, role: 13, caption: 17, pnl: 88, pill: 40, statCaption: 16, statValue: 34,
+        label: 56, labelSub: 22, axis: 18, footer: 19, logo: 34,
+        outroKicker: 20, outroMeta: 26, outroPnl: 124, outroStat: 38,
       },
     };
   }
   return {
     pad: 72,
-    header: { x: 72, y: 52, w: 1776, h: 190 },
-    chart: { x: 72, y: 262, w: 1776, h: 548 },
-    stats: { x: 72, y: 834, w: 1776, h: 128 },
+    header: { x: 72, y: 52, w: 1776, h: 260 },
+    chart: { x: 72, y: 340, w: 1776, h: 620 },
     footer: { x: 72, y: 990, w: 1776, h: 70 },
-    statColumns: 4,
     stackedHeader: false,
     labelAt: "top",
     visibleBars: 96,
     headAt: 0.66,
     priceTop: 0.3,
     priceBottom: 0.06,
+    card: { maxW: 1400, pad: 52, columns: 6, curve: 150, radius: 32 },
     size: {
-      symbol: 54, wallet: 26, caption: 22, pnl: 116, statCaption: 20, statValue: 54, label: 62, labelSub: 24,
-      axis: 20, footer: 22, logo: 38, outroKicker: 24, outroMeta: 30, outroPnl: 164, outroStat: 52,
+      token: 72, symbol: 52, wallet: 24, role: 15, caption: 20, pnl: 112, pill: 50, statCaption: 19, statValue: 42,
+      label: 62, labelSub: 24, axis: 20, footer: 22, logo: 38,
+      outroKicker: 24, outroMeta: 30, outroPnl: 164, outroStat: 44,
     },
   };
 }
@@ -159,6 +161,14 @@ export interface VideoScene {
   logo: CanvasImageSource | null;
   /** Total PnL sampled across the replay, for the result card's curve. */
   pnlPath?: Array<{ t: number; totalUsd: number }>;
+  /** Token image; a monogram is drawn when it is missing. */
+  tokenLogo?: CanvasImageSource | null;
+  /** The wallet's Birdeye label, or "trader". */
+  walletRole?: string;
+  /** Achievement tags for the result card, at most two. */
+  tags?: WalletTag[];
+  /** Turns the average entry price into an entry market cap. */
+  circulatingSupply?: number;
 }
 
 function walletLabel(wallet: string): string {
@@ -204,20 +214,6 @@ function caption(ctx: CanvasRenderingContext2D, text: string, x: number, y: numb
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
-}
-
-function triangle(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, up: boolean) {
-  ctx.beginPath();
-  if (up) {
-    ctx.moveTo(x, y - size);
-    ctx.lineTo(x + size * 0.95, y + size * 0.65);
-    ctx.lineTo(x - size * 0.95, y + size * 0.65);
-  } else {
-    ctx.moveTo(x, y + size);
-    ctx.lineTo(x + size * 0.95, y - size * 0.65);
-    ctx.lineTo(x - size * 0.95, y - size * 0.65);
-  }
-  ctx.closePath();
 }
 
 function pnlColor(value: number): string {
@@ -312,6 +308,246 @@ function dotHorizon(ctx: CanvasRenderingContext2D, w: number, h: number, alpha: 
   }
 }
 
+/** The hero figure in whole dollars ("+$198,971"); compact only past $10M. */
+function heroUsd(value: number): string {
+  if (Math.abs(value) >= 10_000_000) return signedUsd(value);
+  const body = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: Math.abs(value) < 10 ? 2 : 0,
+  }).format(Math.abs(value || 0));
+  return `${value < 0 ? "−" : "+"}${body}`;
+}
+
+function hash(text: string): number {
+  let value = 2_166_136_261;
+  for (let i = 0; i < text.length; i += 1) {
+    value ^= text.charCodeAt(i);
+    value = Math.imul(value, 16_777_619);
+  }
+  return value >>> 0;
+}
+
+/**
+ * A 5×5 mirrored block avatar seeded by the address, kept to the brand's
+ * green–teal range, so the same wallet always wears the same face.
+ */
+function drawIdenticon(ctx: CanvasRenderingContext2D, wallet: string, x: number, y: number, size: number) {
+  let seed = hash(wallet) || 1;
+  const next = () => {
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    return (seed >>> 0) / 4_294_967_296;
+  };
+  const hue = 150 + next() * 34;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = `hsl(${hue.toFixed(0)}, 42%, 13%)`;
+  ctx.fillRect(x, y, size, size);
+  const cell = size / 6;
+  ctx.fillStyle = `hsl(${(hue + next() * 12).toFixed(0)}, 88%, ${(52 + next() * 14).toFixed(0)}%)`;
+  for (let row = 0; row < 5; row += 1) {
+    for (let column = 0; column < 3; column += 1) {
+      if (next() < 0.5) continue;
+      const top = y + cell * (0.5 + row);
+      ctx.fillRect(x + cell * (0.5 + column), top, cell + 0.5, cell + 0.5);
+      ctx.fillRect(x + cell * (4.5 - column), top, cell + 0.5, cell + 0.5);
+    }
+  }
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2 - 1, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+/** The token's own logo in a circle, or a monogram when it could not load. */
+function drawTokenAvatar(ctx: CanvasRenderingContext2D, image: CanvasImageSource | null | undefined, symbol: string, x: number, y: number, size: number) {
+  const cx = x + size / 2;
+  const cy = y + size / 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
+  ctx.fillStyle = C.raised;
+  ctx.fill();
+  const width = image && "width" in image ? Number(image.width) : 0;
+  const height = image && "height" in image ? Number(image.height) : 0;
+  if (image && width > 0 && height > 0) {
+    ctx.clip();
+    // Cover-crop to the circle.
+    const side = Math.min(width, height);
+    ctx.drawImage(image, (width - side) / 2, (height - side) / 2, side, side, x, y, size, size);
+  } else {
+    ctx.fillStyle = C.brand;
+    ctx.font = font(800, size * 0.44);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText((symbol.replace(/[^a-z0-9]/gi, "")[0] ?? "?").toUpperCase(), cx, cy + size * 0.02);
+  }
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(cx, cy, size / 2 - 1, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+/** Filled circle with a B or S, so side never rests on colour alone. */
+function sideBadge(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, side: "buy" | "sell") {
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = side === "buy" ? C.brand : C.loss;
+  ctx.fill();
+  ctx.save();
+  ctx.fillStyle = "#050505";
+  ctx.font = font(800, radius * 1.18);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(side === "buy" ? "B" : "S", x, y + radius * 0.06);
+  ctx.restore();
+}
+
+/** Outlined label after the address, e.g. TRADER or SMART TRADER. */
+function roleBadge(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, height: number, align: "left" | "right"): number {
+  const size = height * 0.56;
+  ctx.font = font(600, size);
+  ctx.letterSpacing = `${(size * 0.1).toFixed(1)}px`;
+  const label = text.toUpperCase();
+  const width = ctx.measureText(label).width + height * 0.8;
+  const left = align === "right" ? x - width : x;
+  roundRect(ctx, left, y, width, height, height / 2);
+  ctx.strokeStyle = C.lineStrong;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = C.text2;
+  ctx.textAlign = "center";
+  ctx.fillText(label, left + width / 2, y + height * 0.69);
+  ctx.textAlign = "left";
+  ctx.letterSpacing = "0px";
+  return width;
+}
+
+function multipleWidth(ctx: CanvasRenderingContext2D, text: string, height: number): number {
+  ctx.font = font(800, height * 0.58);
+  return numberWidth(ctx, text) + height * 0.9;
+}
+
+/** The "17x" pill: solid brand green on a win, outlined red below 1x. */
+function multiplePill(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, height: number, win: boolean): number {
+  const width = multipleWidth(ctx, text, height);
+  roundRect(ctx, x, y, width, height, height / 2);
+  if (win) {
+    ctx.fillStyle = C.brand;
+    ctx.fill();
+    ctx.fillStyle = "#03140D";
+  } else {
+    ctx.fillStyle = `rgba(${C.lossRgb}, 0.14)`;
+    ctx.fill();
+    ctx.strokeStyle = C.loss;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = C.loss;
+  }
+  ctx.font = font(800, height * 0.58);
+  drawNumber(ctx, text, x + width / 2, y + height * 0.7, "center");
+  return width;
+}
+
+function tagWidth(ctx: CanvasRenderingContext2D, tag: WalletTag, height: number): number {
+  ctx.font = `${Math.round(height * 0.5)}px ${EMOJI}`;
+  const emoji = ctx.measureText(tag.emoji).width;
+  ctx.font = font(600, height * 0.46);
+  return emoji + height * 0.25 + ctx.measureText(tag.label).width + height * 0.9;
+}
+
+/** Achievement chip: emoji and plain label on frosted glass. */
+function tagPill(ctx: CanvasRenderingContext2D, tag: WalletTag, x: number, y: number, height: number): number {
+  const width = tagWidth(ctx, tag, height);
+  glassPill(ctx, x, y, width, height);
+  ctx.font = `${Math.round(height * 0.5)}px ${EMOJI}`;
+  ctx.fillStyle = C.text;
+  ctx.fillText(tag.emoji, x + height * 0.45, y + height * 0.68);
+  const emoji = ctx.measureText(tag.emoji).width;
+  ctx.font = font(600, height * 0.46);
+  ctx.fillText(tag.label, x + height * 0.45 + emoji + height * 0.25, y + height * 0.66);
+  return width;
+}
+
+/** Identicon, short address and role, anchored left or right at a vertical centre. */
+function walletBlock(ctx: CanvasRenderingContext2D, wallet: string, role: string, x: number, cy: number, size: number, align: "left" | "right", stacked: boolean): number {
+  const avatar = size * 2.1;
+  const gap = size * 0.55;
+  ctx.font = font(500, size);
+  const address = walletLabel(wallet);
+  const addressW = ctx.measureText(address).width;
+  const badgeH = size * 1.15;
+  ctx.font = font(600, badgeH * 0.56);
+  ctx.letterSpacing = `${(badgeH * 0.056).toFixed(1)}px`;
+  const badgeW = ctx.measureText(role.toUpperCase()).width + badgeH * 0.8;
+  ctx.letterSpacing = "0px";
+  const textW = stacked ? Math.max(addressW, badgeW) : addressW + gap + badgeW;
+  const total = avatar + gap + textW;
+  const left = align === "right" ? x - total : x;
+  drawIdenticon(ctx, wallet, align === "right" ? x - avatar : left, cy - avatar / 2, avatar);
+  const textLeft = align === "right" ? x - avatar - gap - textW : left + avatar + gap;
+  const textRight = textLeft + textW;
+  ctx.font = font(500, size);
+  ctx.fillStyle = C.text;
+  if (stacked) {
+    ctx.textAlign = align;
+    ctx.fillText(address, align === "right" ? textRight : textLeft, cy - size * 0.18);
+    ctx.textAlign = "left";
+    roleBadge(ctx, role, align === "right" ? textRight : textLeft, cy + size * 0.22, badgeH, align);
+  } else {
+    ctx.fillText(address, textLeft, cy + size * 0.36);
+    roleBadge(ctx, role, textLeft + addressW + gap, cy - badgeH / 2, badgeH, "left");
+  }
+  return total;
+}
+
+/** Text shrunk to fit a width; returns the drawn width. */
+function fitText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, weight: number, size: number, color: string): number {
+  ctx.font = font(weight, size);
+  const width = ctx.measureText(text).width;
+  const fit = Math.min(1, Math.max(maxW, 1) / Math.max(width, 1));
+  ctx.font = font(weight, size * fit);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+  return width * fit;
+}
+
+/** The hero PnL and its multiple pill, scaled together to fit. */
+function pnlGroup(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  multipleText: string | null,
+  x: number,
+  baseline: number,
+  maxW: number,
+  size: number,
+  pillH: number,
+  value: number,
+  align: "left" | "right",
+) {
+  ctx.font = font(800, size);
+  const numberW = numberWidth(ctx, text);
+  const gap = pillH * 0.4;
+  const pillW = multipleText ? multipleWidth(ctx, multipleText, pillH) : 0;
+  const natural = numberW + (multipleText ? gap + pillW : 0);
+  const fit = Math.min(1, Math.max(maxW, 1) / natural);
+  const left = align === "right" ? x - natural * fit : x;
+  ctx.font = font(800, size * fit);
+  ctx.fillStyle = pnlColor(value);
+  drawNumber(ctx, text, left, baseline);
+  if (multipleText) {
+    multiplePill(ctx, multipleText, left + (numberW + gap) * fit, baseline - size * fit * 0.36 - (pillH * fit) / 2, pillH * fit, value >= 0);
+  }
+}
+
 export function drawMessage(ctx: CanvasRenderingContext2D, message: string): void {
   const { width: w, height: h } = ctx.canvas;
   ground(ctx, w, h);
@@ -373,34 +609,92 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
   const totalsUsd = walletTradeTotals({ ...totalsArgs, unit: "USDC" });
   const totals = scene.unit === "USDC" ? totalsUsd : walletTradeTotals({ ...totalsArgs, unit: scene.unit });
   const unitText = (value: number) => (scene.unit === "USDC" ? compactUsd(value) : compactAmount(value, "SOL"));
-  const roi = totalsUsd.bought > 0 ? metrics.totalUsd / totalsUsd.bought : null;
-  const roiText = roi === null ? "ROI N/A" : `ROI ${roi >= 0 ? "+" : "−"}${Math.abs(roi * 100).toLocaleString("en-US", { maximumFractionDigits: Math.abs(roi) >= 10 ? 0 : 1 })}%`;
+  // Entry: the average buy price so far, as a market cap when supply is known.
+  const isBuy = (event: LedgerEvent) => event.kind === "buy";
+  let entryPrice = scene.row.avgBuyPrice;
+  if (scene.row.audit) {
+    let quantity = 0;
+    let value = 0;
+    for (const event of currentEvents) {
+      if (!isBuy(event)) continue;
+      quantity += event.quantity;
+      value += event.valueUsd;
+    }
+    entryPrice = quantity > 0 ? value / quantity : 0;
+  } else if (!currentEvents.some(isBuy) && scene.events.some(isBuy)) {
+    entryPrice = 0;
+  }
+  const entryCap = entryMarketCap(entryPrice, scene.circulatingSupply);
+  const entry = entryCap !== null
+    ? { label: "ENTRY MC", text: compactUsd(entryCap) }
+    : { label: "AVG ENTRY", text: entryPrice > 0 ? formatPrice(entryPrice) : "—" };
+  const role = scene.walletRole ?? "trader";
 
-  // ── Header ────────────────────────────────────────────────────────────
+  // ── Header: token, wallet, PnL with its multiple, then the three stats ─
   const S = L.size;
   const H = L.header;
   ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = C.text;
-  ctx.font = font(700, S.symbol);
-  ctx.fillText(`$${scene.symbol}`, H.x, H.y + S.symbol);
-  ctx.fillStyle = C.text2;
-  ctx.font = font(500, S.wallet);
-  ctx.fillText(walletLabel(scene.wallet), H.x, H.y + S.symbol + S.wallet * 1.55);
-  const pnlText = signedUsd(metrics.totalUsd);
+  const pnlText = heroUsd(metrics.totalUsd);
+  const liveMultiple = totalsUsd.bought > 0 ? (totalsUsd.bought + metrics.totalUsd) / totalsUsd.bought : null;
+  const multipleText = formatMultiple(liveMultiple);
+  const symbolText = `$${scene.symbol}`;
+  const symbolX = H.x + S.token * 1.26;
+  const symbolY = H.y + S.token / 2 + S.symbol * 0.36;
+  drawTokenAvatar(ctx, scene.tokenLogo, scene.symbol, H.x, H.y, S.token);
+  let statsY: number;
   if (L.stackedHeader) {
-    const captionY = H.y + H.h - S.pnl * 0.98;
+    const walletW = walletBlock(ctx, scene.wallet, role, H.x + H.w, H.y + S.token / 2, S.wallet, "right", true);
+    fitText(ctx, symbolText, symbolX, symbolY, H.x + H.w - walletW - S.wallet - symbolX, 700, S.symbol, C.text);
+    const captionY = H.y + S.token + S.caption * 2.6;
     caption(ctx, "TOTAL PNL", H.x, captionY, S.caption);
-    caption(ctx, roiText, H.x + H.w, captionY, S.caption, C.text2, "right");
-    ctx.font = font(800, S.pnl);
-    ctx.fillStyle = pnlColor(metrics.totalUsd);
-    drawNumber(ctx, pnlText, H.x - S.pnl * 0.04, H.y + H.h);
+    const baseline = captionY + S.pnl * 0.98;
+    pnlGroup(ctx, pnlText, multipleText, H.x, baseline, H.w, S.pnl, S.pill, metrics.totalUsd, "left");
+    statsY = baseline + S.pnl * 0.3;
   } else {
-    const right = H.x + H.w;
-    caption(ctx, `TOTAL PNL  ·  ${roiText}`, right, H.y + S.caption * 1.4, S.caption, C.text3, "right");
-    ctx.font = font(800, S.pnl);
-    ctx.fillStyle = pnlColor(metrics.totalUsd);
-    drawNumber(ctx, pnlText, right, H.y + H.h - S.pnl * 0.1, "right");
+    const symbolW = fitText(ctx, symbolText, symbolX, symbolY, H.w * 0.4, 700, S.symbol, C.text);
+    const walletCy = H.y + S.token + S.wallet * 1.9;
+    const walletW = walletBlock(ctx, scene.wallet, role, H.x, walletCy, S.wallet, "left", false);
+    const leftW = Math.max(S.token * 1.26 + symbolW, walletW);
+    const captionY = H.y + S.caption * 1.2;
+    caption(ctx, "TOTAL PNL", H.x + H.w, captionY, S.caption, C.text3, "right");
+    const baseline = captionY + S.pnl * 0.96;
+    pnlGroup(ctx, pnlText, multipleText, H.x + H.w, baseline, H.w - leftW - S.pnl * 0.4, S.pnl, S.pill, metrics.totalUsd, "right");
+    statsY = Math.max(walletCy + S.wallet * 1.2, baseline) + S.statCaption * 1.5;
   }
+
+  const cells = [
+    { label: "INVESTED", side: "buy" as const, text: unitText(totals.bought), color: C.text },
+    { label: entry.label, text: entry.text, color: C.text },
+    { label: "SOLD", side: "sell" as const, text: unitText(totals.sold), color: totals.sold > 0 ? C.brand : C.text },
+  ];
+  const cellW = H.w / cells.length;
+  const captionBase = statsY + S.statCaption * 1.9;
+  const valueBase = captionBase + S.statValue * 1.15;
+  ctx.strokeStyle = C.line;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(H.x, statsY);
+  ctx.lineTo(H.x + H.w, statsY);
+  for (let column = 1; column < cells.length; column += 1) {
+    ctx.moveTo(H.x + column * cellW, statsY + S.statCaption * 0.9);
+    ctx.lineTo(H.x + column * cellW, valueBase + S.statValue * 0.2);
+  }
+  ctx.stroke();
+  cells.forEach((cell, index) => {
+    const x = H.x + index * cellW + (index === 0 ? 0 : S.statCaption * 1.2);
+    let captionX = x;
+    if (cell.side) {
+      const radius = S.statCaption * 0.62;
+      sideBadge(ctx, x + radius, captionBase - S.statCaption * 0.36, radius, cell.side);
+      captionX += radius * 2 + S.statCaption * 0.5;
+    }
+    caption(ctx, cell.label, captionX, captionBase, S.statCaption);
+    ctx.font = font(700, S.statValue);
+    const fit = Math.min(1, (cellW - S.statCaption * 2.4) / Math.max(numberWidth(ctx, cell.text), 1));
+    ctx.font = font(700, S.statValue * fit);
+    ctx.fillStyle = cell.color;
+    drawNumber(ctx, cell.text, x, valueBase);
+  });
 
   // ── Chart ─────────────────────────────────────────────────────────────
   const R = L.chart;
@@ -513,20 +807,25 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
       const candle = candles[bar]!;
       const x = xAt(bar);
       const live = liveBars.has(bar);
-      const size = Math.max(9, Math.min(17, slot * 0.42)) * (live ? 1.35 : 1);
+      const radius = Math.max(11, Math.min(20, slot * 0.42)) * (live ? 1.3 : 1);
       const draw = (side: "buy" | "sell") => {
         const up = side === "buy";
-        const y = up ? yAt(candle.l) + size * 1.7 : yAt(candle.h) - size * 1.7;
+        const y = up ? yAt(candle.l) + radius * 1.9 : yAt(candle.h) - radius * 1.9;
         const rgb = up ? C.brandRgb : C.lossRgb;
         if (live) {
-          ctx.fillStyle = `rgba(${rgb}, 0.18)`;
+          ctx.fillStyle = `rgba(${rgb}, 0.2)`;
           ctx.beginPath();
-          ctx.arc(x, y, size * 2.1, 0, Math.PI * 2);
+          ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
           ctx.fill();
         }
-        ctx.fillStyle = up ? C.brand : C.loss;
-        triangle(ctx, x, y, size, up);
-        ctx.fill();
+        // A short stem ties the badge to its candle.
+        ctx.strokeStyle = `rgba(${rgb}, 0.55)`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, up ? yAt(candle.l) + 3 : yAt(candle.h) - 3);
+        ctx.lineTo(x, up ? y - radius : y + radius);
+        ctx.stroke();
+        sideBadge(ctx, x, y, radius, side);
       };
       if (fills.buy.length > 0) draw("buy");
       if (fills.sell.length > 0) draw("sell");
@@ -578,19 +877,19 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
     const glyph = S.label * 0.34;
     const padX = S.label * 0.42;
     const pillH = S.label * 1.02;
-    const widest = Math.max(...lines.map((line) => numberWidth(ctx, line.text))) + glyph * 2.4 + padX * 2;
+    const widest = Math.max(...lines.map((line) => numberWidth(ctx, line.text))) + glyph * 2.6 + padX * 2;
     const fit = Math.min(1, (R.w * 0.92) / widest);
     ctx.scale(fit, fit);
     lines.forEach((line, index) => {
       ctx.font = font(700, S.label * 0.78);
       const textW = numberWidth(ctx, line.text);
-      const pillW = textW + glyph * 2.4 + padX * 2;
+      const pillW = textW + glyph * 2.6 + padX * 2;
       const y = lineGap * index;
       glassPill(ctx, -pillW / 2, y, pillW, pillH, line.rgb);
+      sideBadge(ctx, -pillW / 2 + padX + glyph, y + pillH / 2, glyph * 1.1, line.color === C.brand ? "buy" : "sell");
+      ctx.font = font(700, S.label * 0.78);
       ctx.fillStyle = line.color;
-      triangle(ctx, -pillW / 2 + padX + glyph, y + pillH / 2, glyph, line.color === C.brand);
-      ctx.fill();
-      drawNumber(ctx, line.text, -pillW / 2 + padX + glyph * 2.4, y + pillH * 0.68);
+      drawNumber(ctx, line.text, -pillW / 2 + padX + glyph * 2.6, y + pillH * 0.68);
     });
     const fills = values.buys + values.sells;
     const sub = fills > 1
@@ -603,51 +902,6 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
     ctx.textAlign = "left";
     ctx.restore();
   }
-
-  // ── Stats band: shared hairlines, captions keyed to the markers ──────
-  const B = L.stats;
-  const cells = [
-    { label: "TOTAL BUY", glyph: "buy" as const, text: unitText(totals.bought), color: C.text },
-    { label: "TOTAL SELL", glyph: "sell" as const, text: unitText(totals.sold), color: C.text },
-    { label: "REALIZED", text: signedUsd(metrics.realizedUsd), color: pnlColor(metrics.realizedUsd) },
-    { label: "UNREALIZED", text: signedUsd(metrics.unrealizedUsd), color: pnlColor(metrics.unrealizedUsd) },
-  ];
-  const rows = Math.ceil(cells.length / L.statColumns);
-  const cellW = B.w / L.statColumns;
-  const cellH = B.h / rows;
-  ctx.strokeStyle = C.line;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(B.x, B.y);
-  ctx.lineTo(B.x + B.w, B.y);
-  for (let row = 1; row < rows; row += 1) {
-    ctx.moveTo(B.x, B.y + row * cellH);
-    ctx.lineTo(B.x + B.w, B.y + row * cellH);
-  }
-  for (let column = 1; column < L.statColumns; column += 1) {
-    ctx.moveTo(B.x + column * cellW, B.y + S.statCaption);
-    ctx.lineTo(B.x + column * cellW, B.y + B.h - S.statCaption * 0.5);
-  }
-  ctx.stroke();
-  cells.forEach((cell, index) => {
-    const column = index % L.statColumns;
-    const row = Math.floor(index / L.statColumns);
-    const x = B.x + column * cellW + (column === 0 ? 0 : S.statCaption * 1.2);
-    const y = B.y + row * cellH;
-    let captionX = x;
-    if (cell.glyph) {
-      ctx.fillStyle = cell.glyph === "buy" ? C.brand : C.loss;
-      triangle(ctx, x + S.statCaption * 0.45, y + cellH * 0.34 - S.statCaption * 0.35, S.statCaption * 0.42, cell.glyph === "buy");
-      ctx.fill();
-      captionX += S.statCaption * 1.3;
-    }
-    caption(ctx, cell.label, captionX, y + cellH * 0.34, S.statCaption);
-    ctx.font = font(700, S.statValue);
-    ctx.fillStyle = cell.color;
-    const fit = Math.min(1, (cellW - S.statCaption * 2) / Math.max(numberWidth(ctx, cell.text), 1));
-    ctx.font = font(700, S.statValue * fit);
-    drawNumber(ctx, cell.text, x, y + cellH * 0.34 + S.statValue * 1.08);
-  });
 
   // ── Footer: progress, moment, basis, logo ────────────────────────────
   const F = L.footer;
@@ -666,14 +920,14 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
   ctx.fillText(scene.basis, F.x, F.y + S.footer * 3.7);
   drawLogo(ctx, scene.logo, F.x + F.w, F.y + S.footer * 1.2, S.logo, "right");
 
-  if (t >= timeline.replaySeconds) drawOutro(ctx, t, scene, L, { totals, totalsUsd, unitText });
+  if (t >= timeline.replaySeconds) drawOutro(ctx, t, scene, L, { totals, totalsUsd, unitText, entry, role });
 }
 
-function drawLogo(ctx: CanvasRenderingContext2D, logo: CanvasImageSource | null, x: number, y: number, height: number, align: "right" | "center") {
+function drawLogo(ctx: CanvasRenderingContext2D, logo: CanvasImageSource | null, x: number, y: number, height: number, align: "left" | "right" | "center") {
   if (logo && "width" in logo && Number(logo.width) > 0) {
     const ratio = Number(logo.width) / Number(logo.height || 1);
     const width = height * ratio;
-    const left = align === "right" ? x - width : x - width / 2;
+    const left = align === "right" ? x - width : align === "left" ? x : x - width / 2;
     ctx.drawImage(logo, left, y, width, height);
     return;
   }
@@ -685,19 +939,30 @@ function drawLogo(ctx: CanvasRenderingContext2D, logo: CanvasImageSource | null,
   ctx.textAlign = "left";
 }
 
-/** Result card: veil, count-up, a punch on landing, then a still hold for the thumbnail. */
+/**
+ * Result card: the chart dims behind a framed card, the total counts up and
+ * lands with a punch, then the multiple and the wallet's tags pop in one by
+ * one. The last second is a still hold, so the final frame is the thumbnail.
+ */
 function drawOutro(
   ctx: CanvasRenderingContext2D,
   t: number,
   scene: VideoScene,
   L: Layout,
-  values: { totals: { bought: number; sold: number }; totalsUsd: { bought: number; sold: number }; unitText: (value: number) => string },
+  values: {
+    totals: { bought: number; sold: number };
+    totalsUsd: { bought: number; sold: number };
+    unitText: (value: number) => string;
+    entry: { label: string; text: string };
+    role: string;
+  },
 ) {
   const { width: w, height: h } = ctx.canvas;
   const S = L.size;
+  const K = L.card;
   const o = (t - scene.timeline.replaySeconds) / scene.timeline.outroSeconds;
   const veil = easeOutCubic(o / OUTRO.veil);
-  ctx.fillStyle = `rgba(0, 0, 0, ${(0.985 * veil).toFixed(3)})`;
+  ctx.fillStyle = `rgba(0, 0, 0, ${(0.975 * veil).toFixed(3)})`;
   ctx.fillRect(0, 0, w, h);
 
   const total = scene.row.totalUsd;
@@ -709,54 +974,89 @@ function drawOutro(
   const punch = landed ? 1 + 0.12 * (1 - easeOutCubic(slam)) : 1;
   const shake = !win && landed && slam < 1 ? Math.sin(slam * Math.PI * 6) * (1 - slam) * 12 : 0;
 
-  const glow = ctx.createRadialGradient(w / 2, h * 0.42, 0, w / 2, h * 0.42, Math.max(w, h) * 0.55);
+  const glow = ctx.createRadialGradient(w / 2, h * 0.45, 0, w / 2, h * 0.45, Math.max(w, h) * 0.55);
   glow.addColorStop(0, `rgba(${win ? C.glow : "40, 40, 40"}, ${(0.75 * appear).toFixed(3)})`);
   glow.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, w, h);
-
   dotHorizon(ctx, w, h, appear, t);
+
+  // ── Card geometry, top to bottom ──────────────────────────────────────
+  const invested = values.totalsUsd.bought;
+  const raw = invested > 0 ? (invested + total) / invested : null;
+  const multiple = raw !== null && raw >= 0 ? raw : null;
+  const buys = scene.events.filter((event) => event.kind === "buy").length;
+  const sells = scene.events.filter((event) => event.kind === "sell").length;
+  const stats = [
+    { label: "INVESTED", text: values.unitText(values.totals.bought * count), color: C.text, number: true },
+    { label: values.entry.label, text: values.entry.text, color: C.text, number: true },
+    { label: "SOLD", text: values.unitText(values.totals.sold * count), color: values.totals.sold > 0 ? C.brand : C.text, number: true },
+    { label: "REALIZED", text: signedUsd(scene.row.realizedUsd * count), color: pnlColor(scene.row.realizedUsd), number: true },
+    { label: "UNREALIZED", text: signedUsd(scene.row.unrealizedUsd * count), color: pnlColor(scene.row.unrealizedUsd), number: true },
+    { label: "TRADES", text: buys + sells > 0 ? `${buys} B · ${sells} S` : `${scene.row.buys} B · ${scene.row.sells} S`, color: C.text, number: false },
+  ];
+  const path = scene.pnlPath ?? [];
+  const cardW = Math.min(w - L.pad * 2, K.maxW);
+  const inner = cardW - K.pad * 2;
+  const rowH = S.outroMeta * 1.9;
+  const gap = S.outroMeta * 0.8;
+  const pnlH = S.outroKicker * 1.9 + S.outroPnl;
+  const chipH = S.outroMeta * 1.45;
+  const statRows = Math.ceil(stats.length / K.columns);
+  const statH = S.outroStat * 2.35;
+  const curveH = path.length > 2 ? K.curve : 0;
+  const footH = S.logo * 1.1;
+  const cardH = K.pad * 2 + rowH + gap + pnlH + gap * 0.7 + chipH + gap + statRows * statH + (curveH ? gap * 0.6 + curveH : 0) + gap + footH;
+  const fitScale = Math.min(1, (h - L.pad * 1.2) / cardH);
 
   ctx.save();
   ctx.globalAlpha = appear;
-  ctx.translate(0, (1 - appear) * 30);
-  const cx = w / 2;
-  const portrait = scene.shape === "portrait";
-  const top = portrait ? h * 0.16 : scene.shape === "square" ? h * 0.13 : h * 0.12;
-  caption(ctx, "RESULT", cx, top, S.outroKicker, C.brand, "center");
-  // Token, wallet and basis as a row of glass chips.
-  ctx.font = font(500, S.outroMeta * 0.78);
-  const chips = [`$${scene.symbol}`, walletLabel(scene.wallet), scene.basis];
-  const chipH = S.outroMeta * 1.45;
-  const chipPad = S.outroMeta * 0.7;
-  const chipGap = S.outroMeta * 0.4;
-  const widths = chips.map((chip) => ctx.measureText(chip).width + chipPad * 2);
-  const rowW = widths.reduce((sum, width) => sum + width, 0) + chipGap * (chips.length - 1);
-  const chipScale = Math.min(1, (w - L.pad * 2) / rowW);
-  ctx.save();
-  ctx.translate(cx, top + S.outroMeta * 0.75);
-  ctx.scale(chipScale, chipScale);
-  let chipX = -rowW / 2;
-  chips.forEach((chip, index) => {
-    glassPill(ctx, chipX, 0, widths[index]!, chipH, index === 0 ? C.brandRgb : undefined);
-    ctx.fillStyle = index === 0 ? C.brand : C.text2;
-    ctx.textAlign = "center";
-    ctx.fillText(chip, chipX + widths[index]! / 2, chipH * 0.66);
-    chipX += widths[index]! + chipGap;
-  });
-  ctx.textAlign = "left";
-  ctx.restore();
+  ctx.translate(w / 2, h / 2 + (1 - appear) * 40);
+  const scale = fitScale * (0.96 + 0.04 * appear);
+  ctx.scale(scale, scale);
+  const left = -cardW / 2;
+  const top = -cardH / 2;
+  const x0 = left + K.pad;
+  const x1 = left + cardW - K.pad;
 
-  const pnlY = top + S.outroMeta * 1.9 + S.outroPnl * 1.45;
-  caption(ctx, "TOTAL PNL", cx, pnlY - S.outroPnl * 0.95, S.outroKicker, C.text3, "center");
+  roundRect(ctx, left, top, cardW, cardH, K.radius);
+  ctx.fillStyle = "rgba(8, 11, 10, 0.94)";
+  ctx.fill();
+  const wash = ctx.createRadialGradient(0, top, 0, 0, top, cardW * 0.9);
+  wash.addColorStop(0, `rgba(${win ? C.brandRgb : "120, 120, 120"}, 0.13)`);
+  wash.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = wash;
+  ctx.fill();
+  const rim = ctx.createLinearGradient(left, top, left + cardW, top + cardH);
+  if (win) {
+    rim.addColorStop(0, "rgba(0, 255, 163, 0.95)");
+    rim.addColorStop(0.5, "rgba(0, 150, 130, 0.3)");
+    rim.addColorStop(1, "rgba(0, 255, 163, 0.65)");
+  } else {
+    rim.addColorStop(0, `rgba(${C.lossRgb}, 0.8)`);
+    rim.addColorStop(0.5, "rgba(64, 64, 64, 0.5)");
+    rim.addColorStop(1, `rgba(${C.lossRgb}, 0.45)`);
+  }
+  ctx.strokeStyle = rim;
+  ctx.lineWidth = 3;
+  ctx.stroke();
 
+  // Identity row: token on the left, wallet on the right.
+  let y = top + K.pad;
+  drawTokenAvatar(ctx, scene.tokenLogo, scene.symbol, x0, y, rowH);
+  const walletW = walletBlock(ctx, scene.wallet, values.role, x1, y + rowH / 2, S.outroMeta * 0.7, "right", true);
+  fitText(ctx, `$${scene.symbol}`, x0 + rowH * 1.25, y + rowH / 2 + S.outroMeta * 0.44, inner - rowH * 1.25 - walletW - S.outroMeta, 700, S.outroMeta * 1.25, C.text);
+  y += rowH + gap;
+
+  // Total PnL: count-up, punch, ring and sparks on a winning landing.
+  caption(ctx, "TOTAL PNL", 0, y + S.outroKicker, S.outroKicker, C.text3, "center");
+  const numberY = y + S.outroKicker * 1.9 + S.outroPnl * 0.5;
   if (landed && win && slam < 1.6) {
-    // Expanding ring and a deterministic spark burst on a winning landing.
     const k = easeOutCubic(Math.min(1, slam / 1.6));
     ctx.strokeStyle = `rgba(${C.brandRgb}, ${(0.55 * (1 - k)).toFixed(3)})`;
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(cx, pnlY - S.outroPnl * 0.34, S.outroPnl * (0.7 + 1.9 * k), 0, Math.PI * 2);
+    ctx.arc(0, numberY, S.outroPnl * (0.7 + 1.9 * k), 0, Math.PI * 2);
     ctx.stroke();
     for (let i = 0; i < 18; i += 1) {
       const jitter = Math.sin(i * 12.9898) * 0.5 + 0.5;
@@ -764,130 +1064,140 @@ function drawOutro(
       const distance = S.outroPnl * (1 + jitter * 1.4) * k;
       const size = 4 + jitter * 6;
       ctx.fillStyle = i % 3 === 0 ? `rgba(255, 255, 255, ${(1 - k).toFixed(3)})` : `rgba(${C.brandRgb}, ${(1 - k).toFixed(3)})`;
-      ctx.fillRect(cx + Math.cos(angle) * distance * 1.6 - size / 2, pnlY - S.outroPnl * 0.34 + Math.sin(angle) * distance - size / 2, size, size);
+      ctx.fillRect(Math.cos(angle) * distance * 1.6 - size / 2, numberY + Math.sin(angle) * distance - size / 2, size, size);
     }
   }
-
   ctx.save();
-  ctx.translate(cx + shake, pnlY - S.outroPnl * 0.34);
+  ctx.translate(shake, numberY);
   ctx.scale(punch, punch);
   ctx.font = font(800, S.outroPnl);
-  const pnlText = signedUsd(total * count);
-  const fit = Math.min(1, (w - L.pad * 2) / numberWidth(ctx, signedUsd(total)));
+  const fit = Math.min(1, inner / numberWidth(ctx, heroUsd(total)));
   ctx.font = font(800, S.outroPnl * fit);
   ctx.fillStyle = pnlColor(total);
-  drawNumber(ctx, pnlText, 0, S.outroPnl * fit * 0.34, "center");
+  drawNumber(ctx, heroUsd(total * count), 0, S.outroPnl * fit * 0.36, "center");
   ctx.restore();
+  y += pnlH + gap * 0.7;
 
-  const roi = values.totalsUsd.bought > 0 ? total / values.totalsUsd.bought : null;
-  const roiText = roi === null ? "ROI N/A" : `ROI ${roi >= 0 ? "+" : "−"}${Math.abs(roi * 100 * count).toLocaleString("en-US", { maximumFractionDigits: Math.abs(roi) >= 10 ? 0 : 1 })}%`;
-  ctx.font = font(700, S.outroKicker * 1.15);
-  const pillW = ctx.measureText(roiText).width + S.outroKicker * 2;
-  const pillH = S.outroKicker * 2.1;
-  const pillY = pnlY + S.outroPnl * 0.35;
-  roundRect(ctx, cx - pillW / 2, pillY, pillW, pillH, pillH / 2);
-  ctx.strokeStyle = roi !== null && roi < 0 ? C.loss : C.brand;
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = roi !== null && roi < 0 ? C.loss : C.brand;
-  ctx.textAlign = "center";
-  ctx.fillText(roiText, cx, pillY + pillH * 0.66);
-  ctx.textAlign = "left";
-
-  const buys = scene.events.filter((event) => event.kind === "buy").length;
-  const sells = scene.events.filter((event) => event.kind === "sell").length;
-  const stats = [
-    { label: "TOTAL BUY", text: values.unitText(values.totals.bought * count) },
-    { label: "TOTAL SELL", text: values.unitText(values.totals.sold * count) },
-    { label: "REALIZED", text: signedUsd(scene.row.realizedUsd * count) },
-    { label: "TRADES", text: buys + sells > 0 ? `${buys} B · ${sells} S` : `${scene.row.buys} B · ${scene.row.sells} S` },
+  // The multiple counts with the total; tags pop in after the landing.
+  const multipleText = formatMultiple(multiple === null ? null : 1 + (multiple - 1) * count);
+  const tags = scene.tags ?? [];
+  const widths = [
+    ...(multipleText ? [multipleWidth(ctx, formatMultiple(multiple) ?? multipleText, chipH)] : []),
+    ...tags.map((tag) => tagWidth(ctx, tag, chipH)),
   ];
-  const columns = portrait ? 2 : 4;
-  const gridW = portrait ? w - L.pad * 2 : Math.min(w - L.pad * 2, S.outroStat * 26);
-  const cellW = gridW / columns;
-  const gridY = pillY + pillH + S.outroStat * (portrait ? 1.6 : 1.3);
+  const chipGap = chipH * 0.3;
+  const rowW = widths.reduce((sum, width) => sum + width, 0) + chipGap * Math.max(widths.length - 1, 0);
+  if (widths.length > 0) {
+    const chipScale = Math.min(1, inner / rowW);
+    ctx.save();
+    ctx.translate(0, y);
+    ctx.scale(chipScale, chipScale);
+    let chipX = -rowW / 2;
+    if (multipleText) {
+      multiplePill(ctx, multipleText, chipX + (widths[0]! - multipleWidth(ctx, multipleText, chipH)) / 2, 0, chipH, win);
+      chipX += widths[0]! + chipGap;
+    }
+    tags.forEach((tag, index) => {
+      const width = widths[index + (multipleText ? 1 : 0)]!;
+      const pop = landed ? Math.min(1, Math.max(0, (slam - 0.4 - index * 0.5) / 0.9)) : 0;
+      if (pop > 0) {
+        const bounce = 1 + 0.18 * Math.sin(pop * Math.PI) * (1 - pop);
+        ctx.save();
+        ctx.globalAlpha *= easeOutCubic(pop * 1.6);
+        ctx.translate(chipX + width / 2, chipH / 2);
+        ctx.scale(bounce * (0.7 + 0.3 * easeOutCubic(pop)), bounce * (0.7 + 0.3 * easeOutCubic(pop)));
+        tagPill(ctx, tag, -width / 2, -chipH / 2, chipH);
+        ctx.restore();
+      }
+      chipX += width + chipGap;
+    });
+    ctx.restore();
+  }
+  y += chipH + gap;
+
+  // Stats grid under a hairline.
+  ctx.strokeStyle = C.line;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x0, y - gap * 0.5);
+  ctx.lineTo(x1, y - gap * 0.5);
+  ctx.stroke();
+  const cellW = inner / K.columns;
   stats.forEach((stat, index) => {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
-    const x = cx - gridW / 2 + cellW * (column + 0.5);
-    const y = gridY + row * S.outroStat * 2.6;
-    caption(ctx, stat.label, x, y, S.outroKicker * 0.85, C.text3, "center");
+    const column = index % K.columns;
+    const row = Math.floor(index / K.columns);
+    const cx = x0 + cellW * (column + 0.5);
+    const cy = y + row * statH;
+    caption(ctx, stat.label, cx, cy + S.outroKicker * 0.8, S.outroKicker * 0.78, C.text3, "center");
     ctx.font = font(700, S.outroStat);
-    const fit = Math.min(1, (cellW * 0.92) / Math.max(numberWidth(ctx, stat.text), 1));
-    ctx.font = font(700, S.outroStat * fit);
-    ctx.fillStyle = C.text;
-    if (stat.label === "TRADES") {
-      ctx.textAlign = "center";
-      ctx.fillText(stat.text, x, y + S.outroStat * 1.2);
-      ctx.textAlign = "left";
+    const statFit = Math.min(1, (cellW * 0.9) / Math.max(numberWidth(ctx, stat.text), 1));
+    ctx.font = font(700, S.outroStat * statFit);
+    ctx.fillStyle = stat.color;
+    if (stat.number) {
+      drawNumber(ctx, stat.text, cx, cy + S.outroKicker * 0.8 + S.outroStat * 1.2, "center");
     } else {
-      drawNumber(ctx, stat.text, x, y + S.outroStat * 1.2, "center");
+      ctx.textAlign = "center";
+      ctx.fillText(stat.text, cx, cy + S.outroKicker * 0.8 + S.outroStat * 1.2);
+      ctx.textAlign = "left";
     }
   });
+  y += statRows * statH;
 
-  // PnL across the replay, drawn on as the total counts up, wherever the
-  // format leaves room under the figures.
-  const path = scene.pnlPath ?? [];
-  if (path.length > 2) {
-    const curveTop = gridY + Math.ceil(stats.length / columns) * S.outroStat * 2.6 + S.outroStat * 0.4;
-    const curveBottom = h - L.pad - S.logo * 3.2;
-    const curveH = Math.min(h * 0.17, curveBottom - curveTop);
-    if (curveH > 80) {
-      const width = portrait ? w - L.pad * 2 : gridW;
-      const left = cx - width / 2;
-      const values = [0, ...path.map((point) => point.totalUsd), total];
-      const min = Math.min(...values);
-      const max = Math.max(...values);
-      const spread = Math.max(max - min, 1e-9);
-      const tMax = scene.timeline.replaySeconds;
-      const points = [...path, { t: tMax, totalUsd: total }]
-        .filter((point) => point.t <= tMax * count + 1e-9)
-        .map((point) => ({
-          x: left + (point.t / tMax) * width,
-          y: curveTop + S.outroKicker * 1.6 + (1 - (point.totalUsd - min) / spread) * (curveH - S.outroKicker * 1.6),
-        }));
-      caption(ctx, "PNL ACROSS THE REPLAY", left, curveTop, S.outroKicker * 0.85, C.text3);
-      const zeroY = curveTop + S.outroKicker * 1.6 + (1 - (0 - min) / spread) * (curveH - S.outroKicker * 1.6);
-      ctx.strokeStyle = C.line;
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 6]);
+  // PnL across the replay, drawn on as the total counts up.
+  if (curveH) {
+    y += gap * 0.6;
+    const labelH = S.outroKicker * 1.6;
+    const all = [0, ...path.map((point) => point.totalUsd), total];
+    const min = Math.min(...all);
+    const max = Math.max(...all);
+    const spread = Math.max(max - min, 1e-9);
+    const tMax = scene.timeline.replaySeconds;
+    const yOf = (value: number) => y + labelH + (1 - (value - min) / spread) * (curveH - labelH);
+    caption(ctx, "PNL ACROSS THE REPLAY", x0, y + S.outroKicker * 0.7, S.outroKicker * 0.78, C.text3);
+    const zeroY = yOf(0);
+    ctx.strokeStyle = C.line;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(x0, zeroY);
+    ctx.lineTo(x1, zeroY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const points = [...path, { t: tMax, totalUsd: total }]
+      .filter((point) => point.t <= tMax * count + 1e-9)
+      .map((point) => ({ x: x0 + (point.t / tMax) * inner, y: yOf(point.totalUsd) }));
+    if (points.length > 1) {
+      const area = ctx.createLinearGradient(0, y, 0, y + curveH);
+      area.addColorStop(0, `rgba(${win ? C.brandRgb : C.lossRgb}, 0.22)`);
+      area.addColorStop(1, `rgba(${win ? C.brandRgb : C.lossRgb}, 0)`);
       ctx.beginPath();
-      ctx.moveTo(left, zeroY);
-      ctx.lineTo(left + width, zeroY);
+      ctx.moveTo(points[0]!.x, zeroY);
+      for (const point of points) ctx.lineTo(point.x, point.y);
+      ctx.lineTo(points.at(-1)!.x, zeroY);
+      ctx.closePath();
+      ctx.fillStyle = area;
+      ctx.fill();
+      ctx.beginPath();
+      points.forEach((point, index) => (index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y)));
+      ctx.strokeStyle = pnlColor(total);
+      ctx.lineWidth = 4;
+      ctx.lineJoin = "round";
       ctx.stroke();
-      ctx.setLineDash([]);
-      if (points.length > 1) {
-        const area = ctx.createLinearGradient(0, curveTop, 0, curveTop + curveH);
-        area.addColorStop(0, `rgba(${win ? C.brandRgb : C.lossRgb}, 0.22)`);
-        area.addColorStop(1, `rgba(${win ? C.brandRgb : C.lossRgb}, 0)`);
-        ctx.beginPath();
-        ctx.moveTo(points[0]!.x, zeroY);
-        for (const point of points) ctx.lineTo(point.x, point.y);
-        ctx.lineTo(points.at(-1)!.x, zeroY);
-        ctx.closePath();
-        ctx.fillStyle = area;
-        ctx.fill();
-        ctx.beginPath();
-        points.forEach((point, index) => (index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y)));
-        ctx.strokeStyle = pnlColor(total);
-        ctx.lineWidth = 4;
-        ctx.lineJoin = "round";
-        ctx.stroke();
-        const tip = points.at(-1)!;
-        ctx.fillStyle = pnlColor(total);
-        ctx.beginPath();
-        ctx.arc(tip.x, tip.y, 7, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      const tip = points.at(-1)!;
+      ctx.fillStyle = pnlColor(total);
+      ctx.beginPath();
+      ctx.arc(tip.x, tip.y, 7, 0, Math.PI * 2);
+      ctx.fill();
     }
+    y += curveH;
   }
+  y += gap;
 
-  const footY = h - L.pad - S.logo * 1.6;
-  drawLogo(ctx, scene.logo, cx, footY, S.logo, "center");
+  // Footer: brand logo left, the app name right.
+  drawLogo(ctx, scene.logo, x0, y + (footH - S.logo) / 2, S.logo, "left");
   ctx.font = font(500, S.footer * 0.9);
   ctx.fillStyle = C.text3;
-  ctx.textAlign = "center";
-  ctx.fillText("PnL Replayer · Powered by Birdeye Data API", cx, footY + S.logo + S.footer * 1.4);
+  ctx.textAlign = "right";
+  ctx.fillText("PnL Replayer · Powered by Birdeye Data API", x1, y + footH / 2 + S.footer * 0.32);
   ctx.textAlign = "left";
   ctx.restore();
 }

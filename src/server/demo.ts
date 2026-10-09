@@ -125,6 +125,7 @@ export function demoAnalysis(): TokenAnalysis {
     methodology: "wac+balance-reconciliation",
     solPriceUsd: 145,
     spotPriceUsd: candles.at(-1)?.c ?? 0,
+    market: { circulatingSupply: 88_000_000_000_000, marketCapUsd: (candles.at(-1)?.c ?? 0) * 88_000_000_000_000, holders: 1_000_000 },
     candles,
     board: wallets.map((_, index) => row(index, candles)).sort((a, b) => b.totalUsd - a.totalUsd),
     auditSummary: { requested: 6, completed: 6, high: 3, medium: 2, low: 1 },

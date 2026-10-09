@@ -98,10 +98,41 @@ price, so realized PnL moves only on sells and unrealized follows the chart.
 The closing frame shows the row's audited totals, which are marked at the spot
 price used by the board.
 
-Total Buy and Total Sell are gross cash flow: the summed value of every buy and
-every sell up to the frame, transfers excluded. Total Sell therefore includes
-proceeds from unknown-basis inventory, which the ledger's `soldUsd` (confirmed
-proceeds only) leaves out; the two answer different questions.
+Invested and Sold are gross cash flow: the summed value of every buy and every
+sell up to the frame, transfers excluded. Sold therefore includes proceeds from
+unknown-basis inventory, which the ledger's `soldUsd` (confirmed proceeds only)
+leaves out; the two answer different questions.
+
+### Card vocabulary
+
+| Term | Definition |
+|---|---|
+| Invested | Gross USD of buys |
+| Sold | Gross USD of sells |
+| Multiple (`17x`) | (Invested + total PnL) / Invested. Hidden when nothing was bought, or when the loss exceeds Invested (transfers brought basis in, so no honest multiple exists) |
+| Entry MC | Average buy price × current circulating supply from Token Market Data. Approximate for tokens whose supply changed since the wallet bought; shown as an average entry price when supply is unknown |
+
+The average buy price comes from the replayed fills on ledger clips, and from
+Birdeye's `avg_buy_cost` when the clip is sampled or inferred, because a sample
+cannot average to the truth.
+
+### Tags
+
+The result card shows at most two tags, first match wins. Each is a plain
+reading of numbers already on the card:
+
+| Tag | Rule |
+|---|---|
+| 🚀 Moonshot | Multiple ≥ 10x |
+| 💀 Rekt | Multiple ≤ 0.2x |
+| 💎 Diamond hands | Still holding and sold at most 1% of Invested |
+| 🧻 Paper hands | Fully exited, and today's price is at least 2× the average sell |
+| 💰 Took profits | Realized PnL > 0 with sells |
+| 🐣 Early bird | Entry MC ≤ 10% of today's market cap |
+| 🐋 Whale | Invested ≥ $100K |
+| 🎒 Bag holder | Still holding, unrealized loss, multiple < 0.5x |
+| 🎰 Degen | 200 or more trades |
+| 🎯 Sniper | Birdeye tags the wallet as a sniper |
 
 Rows that cannot be read in full (above `AUDIT_MAX_TRADES`, or a ledger that hit
 the event ceiling) keep Birdeye WAC as the number. Their clip derives timing

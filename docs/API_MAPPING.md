@@ -12,7 +12,8 @@ inputs and flag missing basis, instead of returning a conclusion.
 | Fast PnL baseline | `GET /wallet/v2/pnl/multiple` | Weighted average cost, batches of 50 wallets. A wallet missing from the response means "not answered", not $0 |
 | Quantity truth | `GET /wallet/v2/balance-change` | Every token-account row is summed per transaction signature, so a routed swap counts once |
 | Swap side and execution price | `GET /defi/v3/token/txs` with `owner` | Prefer `volume_usd / token quantity`, then the leg price, then OHLCV. Fallback coverage is tracked |
-| Token name and decimals | `GET /defi/v3/token/meta-data/single` | Board header and video title |
+| Token name, decimals and logo | `GET /defi/v3/token/meta-data/single` | Board header, video header and result card |
+| Supply, market cap and holders | `GET /defi/v3/token/market-data` | Entry market cap on the video (average buy price × circulating supply) and the board's MC and holder line |
 | Spot mark | `GET /defi/price` | Marks open inventory for unrealized PnL |
 | Wallet labels (extension) | `POST /identity/v1/multiple` | Exchange, protocol and KOL labels for board rows |
 | Wallet token list (phase 2) | `POST /wallet/v2/pnl/details` | Wallet-first entry: list the tokens a wallet traded |

@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch, setVisitorApiKey } from "@/lib/api-client";
+import { logoCandidates } from "@/lib/token-logo";
+import { formatMultiple } from "@/lib/wallet-tags";
 import type { ApiUsage } from "@/server/birdeye/usage";
 import type { BoardRow, TokenAnalysis } from "@/server/services/analyze-token";
 import { WalletVideoModal } from "./wallet-video-modal";
@@ -32,6 +34,24 @@ function money(value: number, signed = false) {
   }).format(Math.abs(value || 0));
   if (!signed) return value < 0 ? `−${body}` : body;
   return `${value < 0 ? "−" : "+"}${body}`;
+}
+
+/** Token logo from Birdeye metadata, or a monogram when it is missing or fails. */
+function TokenAvatar({ src, symbol }: { src?: string; symbol: string }) {
+  const [failed, setFailed] = useState(false);
+  const url = logoCandidates(src)[0];
+  if (!url || failed) {
+    return <span className="token-avatar monogram" aria-hidden="true">{symbol.replace(/[^a-z0-9]/gi, "")[0]?.toUpperCase() ?? "?"}</span>;
+  }
+  // eslint-disable-next-line @next/next/no-img-element -- arbitrary remote hosts, shown as-is
+  return <img className="token-avatar" src={url} alt="" width={56} height={56} referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
+}
+
+/** (invested + PnL) / invested, as on the video card. */
+function MultiplePill({ row }: { row: BoardRow }) {
+  const text = row.boughtUsd > 0 ? formatMultiple((row.boughtUsd + row.totalUsd) / row.boughtUsd) : null;
+  if (!text) return null;
+  return <span className={`multiple-pill ${row.totalUsd < 0 ? "loss" : "win"}`}>{text}</span>;
 }
 
 function short(address: string) {
@@ -326,10 +346,19 @@ export function Dashboard() {
       {data && (
         <>
           <section className="token-header">
-            <div>
-              <p className="token-symbol">${data.token.symbol ?? "TOKEN"}{data.demo ? <Badge variant="outline" className="pill neutral">Sample data</Badge> : null}</p>
-              <h2>{data.token.name ?? short(data.token.mint)}</h2>
-              <code>{data.token.mint}</code>
+            <div className="token-identity">
+              <TokenAvatar key={data.token.logo ?? data.token.mint} src={data.token.logo} symbol={data.token.symbol ?? "TOKEN"} />
+              <div>
+                <p className="token-symbol">${data.token.symbol ?? "TOKEN"}{data.demo ? <Badge variant="outline" className="pill neutral">Sample data</Badge> : null}</p>
+                <h2>{data.token.name ?? short(data.token.mint)}</h2>
+                {data.market && data.market.marketCapUsd > 0 && (
+                  <p className="token-market">
+                    MC {money(data.market.marketCapUsd)}
+                    {data.market.holders > 0 ? ` · ${data.market.holders.toLocaleString("en-US")} holders` : ""}
+                  </p>
+                )}
+                <code>{data.token.mint}</code>
+              </div>
             </div>
             <div className="audit-counts" aria-label="Audited wallets by confidence">
               <div><strong>{confidence.high}</strong><span>High</span></div>
@@ -350,7 +379,7 @@ export function Dashboard() {
               <table>
                 <thead>
                   <tr>
-                    <th>#</th><th>Wallet</th><th>Method</th><th className="number">Realized</th>
+                    <th>#</th><th>Wallet</th><th>Method</th><th className="number">Invested</th><th className="number">Realized</th>
                     <th className="number">Unrealized</th><th className="number">Total PnL</th>
                     <th className="number">Δ vs WAC</th><th className="number">Trades</th><th className="clip-column"><span className="sr-only">Video</span></th>
                   </tr>
@@ -361,9 +390,13 @@ export function Dashboard() {
                       <td className="rank">{String(index + 1).padStart(2, "0")}</td>
                       <td className="wallet-cell"><code title={row.wallet}>{short(row.wallet)}</code>{row.tags?.slice(0, 2).map((tag) => <small key={tag}>{tag.replaceAll("_", " ")}</small>)}</td>
                       <td><Confidence level={row.audit?.confidence} holderOnly={row.buys + row.sells === 0} /></td>
+                      <td className="number">{row.boughtUsd > 0 ? money(row.boughtUsd) : "N/A"}</td>
                       <td className={`number ${row.realizedUsd < 0 ? "negative" : "positive"}`}>{money(row.realizedUsd, true)}</td>
                       <td className={`number ${row.unrealizedUsd < 0 ? "negative" : "positive"}`}>{money(row.unrealizedUsd, true)}</td>
-                      <td className={`number total ${row.totalUsd < 0 ? "negative" : "positive"}`}>{money(row.totalUsd, true)}</td>
+                      <td className={`number total ${row.totalUsd < 0 ? "negative" : "positive"}`}>
+                        {money(row.totalUsd, true)}
+                        <MultiplePill row={row} />
+                      </td>
                       <td className="number delta">{row.audit ? money(row.audit.deltaUsd, true) : "N/A"}</td>
                       <td className="number">{(row.buys + row.sells).toLocaleString()}</td>
                       <td className="clip-column">
