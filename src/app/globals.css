@@ -309,6 +309,7 @@ td.rank { color: var(--bds-text-subtle); font-family: var(--font-mono); }
 .switch-field label { font-weight: 500; cursor: pointer; }
 .switch-grid { display: flex; flex-wrap: wrap; gap: 10px 18px; }
 .sound-heading { align-items: center; margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--bds-border-subtle); color: var(--bds-text-primary); font-size: 13px; font-weight: 600; }
+.sound-blocked { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-color: rgba(245, 158, 11, 0.5); color: #fcd34d; }
 [data-slot="tooltip-content"] { border: 1px solid var(--bds-border-default); background: var(--bds-bg-raised); color: var(--bds-text-primary); }
 
 @media (max-width: 1120px) {

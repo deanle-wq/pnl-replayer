@@ -166,6 +166,8 @@ export function playCue(ctx: BaseAudioContext, out: AudioNode, cue: TimedCue, wh
       return;
     }
     case "win": {
+      // Meme pack: the result card lands on the voice line too.
+      if (samples?.bandos) sample(ctx, out, samples.bandos, when + 0.12, 0.95);
       burst(ctx, out, { when, filter: "lowpass", frequency: 900, peak: 0.12, decay: 0.12 });
       [0, 4, 7, 12].forEach((steps) => {
         tone(ctx, out, { when, type: "triangle", from: semitone(523.25, steps), peak: 0.1, attack: 0.01, decay: 1.25 });
@@ -210,14 +212,27 @@ export class LiveCuePlayer {
   private ctx: AudioContext | null = null;
   private out: AudioNode | null = null;
 
-  /** Must run inside a user gesture the first time (autoplay policy). */
+  /** `onState` hears whether the browser is letting the preview make sound. */
+  constructor(private readonly onState?: (running: boolean) => void) {}
+
+  /**
+   * Create or resume the audio context. Browsers only allow this after a user
+   * gesture on the page, so call it on open (sticky activation covers Chrome)
+   * and again on any click inside the editor (Safari wants the gesture itself).
+   */
   unlock(): void {
     if (typeof AudioContext === "undefined") return;
     if (!this.ctx) {
       this.ctx = new AudioContext({ sampleRate: SAMPLE_RATE });
       this.out = masterChain(this.ctx);
+      this.ctx.onstatechange = () => this.onState?.(this.ctx?.state === "running");
     }
-    if (this.ctx.state === "suspended") void this.ctx.resume();
+    if (this.ctx.state === "suspended") void this.ctx.resume().catch(() => undefined);
+    this.onState?.(this.ctx.state === "running");
+  }
+
+  get running(): boolean {
+    return this.ctx?.state === "running";
   }
 
   /** Cues in (from, to]. Seeks and loops (large or backward jumps) stay silent. */

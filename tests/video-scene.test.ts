@@ -92,7 +92,7 @@ test("sub-cent prices use subscript zeros; signs never rely on colour", () => {
   assert.equal(signedUsd(184_520), "+$184.52K");
 });
 
-test("meme pack: a bandos call per $20K, widened for big winners, synth below $20K", () => {
+test("meme pack: a bandos call per $20K, widened for big winners, round steps below $20K", () => {
   const timeline = videoTimeline(15);
   const ramp = (peak: number) => Array.from({ length: 101 }, (_, index) => ({ t: index * 0.1, totalUsd: (peak * index) / 100 }));
   const calls = (peak: number) => cueSchedule({ bursts: [], pnl: ramp(peak), timeline, finalTotalUsd: peak, pack: "meme" });
@@ -101,8 +101,9 @@ test("meme pack: a bandos call per $20K, widened for big winners, synth below $2
   assert.equal(bandosStep(700_000), 120_000);
   assert.ok(calls(700_000).filter((cue) => cue.cue === "bandos").length <= 6);
   const small = calls(15_000);
-  assert.equal(small.filter((cue) => cue.cue === "bandos").length, 0);
-  assert.ok(small.some((cue) => cue.cue === "milestone"), "small winners keep the synth fanfare");
+  const smallCalls = small.filter((cue) => cue.cue === "bandos").length;
+  assert.ok(smallCalls >= 3 && smallCalls <= 6, `small winners still hear bandos a few times, got ${smallCalls}`);
+  assert.equal(small.filter((cue) => cue.cue === "milestone").length, 0);
   assert.equal(bandosStep(15_000), null);
   const clean = cueSchedule({ bursts: [], pnl: ramp(98_000), timeline, finalTotalUsd: 98_000, pack: "clean" });
   assert.equal(clean.filter((cue) => cue.cue === "bandos").length, 0);

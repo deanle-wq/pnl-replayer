@@ -365,7 +365,18 @@ export function WalletVideoModal({
     };
   }, []);
 
-  useEffect(() => () => audioRef.current?.close(), []);
+  // One audio context for the editor's life, opened as soon as it mounts:
+  // the click that opened the editor already counts as a user gesture.
+  const [audioRunning, setAudioRunning] = useState(false);
+  useEffect(() => {
+    const player = new LiveCuePlayer(setAudioRunning);
+    audioRef.current = player;
+    player.unlock();
+    return () => {
+      player.close();
+      if (audioRef.current === player) audioRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!requestedKey || series?.key === requestedKey) return;
@@ -551,8 +562,7 @@ export function WalletVideoModal({
   }, [clipSeconds, cues, looping, playing, rendering, scene, sound, timeframeLoading]);
 
   const togglePlay = () => {
-    if (!audioRef.current) audioRef.current = new LiveCuePlayer();
-    audioRef.current.unlock();
+    audioRef.current?.unlock();
     if (!playing && playheadRef.current >= 0.999) {
       playheadRef.current = 0;
       setPlayhead(0);
@@ -657,6 +667,9 @@ export function WalletVideoModal({
         showCloseButton={false}
         className="video-modal"
         onEscapeKeyDown={(event) => busy && event.preventDefault()}
+        // Any click or key inside the editor is a gesture that can unblock audio.
+        onPointerDownCapture={() => audioRef.current?.unlock()}
+        onKeyDownCapture={() => audioRef.current?.unlock()}
         onPointerDownOutside={(event) => busy && event.preventDefault()}
       >
         <header className="video-modal-header">
@@ -682,6 +695,11 @@ export function WalletVideoModal({
               <canvas ref={attachCanvas} width={VIDEO_FORMATS[shape].width} height={VIDEO_FORMATS[shape].height} aria-label="Video preview" />
               {(replayLoading || timeframeLoading) && (
                 <div className="video-stage-status">{replayLoading ? "Reading balance changes and swaps…" : `Loading ${timeframe} candles…`}</div>
+              )}
+              {!replayLoading && !timeframeLoading && sound.enabled && !audioRunning && (
+                <button type="button" className="video-stage-status sound-blocked" onClick={() => audioRef.current?.unlock()}>
+                  <SpeakerSlash size={14} aria-hidden="true" /> The browser paused sound. Click to turn it on
+                </button>
               )}
             </div>
             <div className="video-timeline">
@@ -872,8 +890,7 @@ export function WalletVideoModal({
                         className="size-8"
                         aria-label={sound.enabled ? "Mute all sound" : "Turn sound on"}
                         onClick={() => {
-                          if (!audioRef.current) audioRef.current = new LiveCuePlayer();
-                          audioRef.current.unlock();
+                          audioRef.current?.unlock();
                           setSound((value) => ({ ...value, enabled: !value.enabled }));
                           setGenerated(null);
                         }}

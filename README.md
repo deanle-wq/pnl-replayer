@@ -152,8 +152,9 @@ every endpoint called, and each replay prints its own requests and CU.
 - **Popups.** Glass pills over a colour wash. Bursts of fills share one popup
   whose number climbs as they land.
 - **Sound packs.**
-  - **Meme** (the default): a ka-ching on sells, plus a "bandos" call for
-    every $20K of PnL.
+  - **Meme** (the default): a ka-ching on sells and a "bandos" voice call
+    for every $20K of PnL (round steps for smaller winners). The result card
+    lands on it too.
   - **Clean**: synthesised blips, a till sound, milestone fanfares and a
     result sting.
   - Both packs are mixed into the export.

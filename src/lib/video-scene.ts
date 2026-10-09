@@ -165,10 +165,11 @@ export function cueSchedule(input: {
 
   const peak = input.pnl.reduce((max, point) => Math.max(max, point.totalUsd), 0);
   if (peak > 0) {
-    // The meme pack speaks in $20K units; below that, or in the clean pack,
-    // the synth fanfare marks round steps of about a quarter of the peak.
-    const meme = input.pack === "meme" ? bandosStep(peak) : null;
-    const step = meme ?? milestoneStep(peak);
+    // The meme pack calls "bandos" every $20K (wider for big winners); a
+    // smaller winner still hears it at round steps of about a quarter of the
+    // peak. The clean pack plays the synth fanfare at those round steps.
+    const meme = input.pack === "meme";
+    const step = (meme ? bandosStep(peak) : null) ?? milestoneStep(peak);
     let tier = Math.max(0, Math.floor((input.pnl[0]?.totalUsd ?? 0) / step));
     let count = 0;
     for (const point of input.pnl.slice(1)) {
