@@ -130,7 +130,7 @@ export function Dashboard() {
   const [mode, setMode] = useState<Mode>("token");
   // Which result is on screen; the mode switch only changes the input.
   const [view, setView] = useState<Mode | null>(null);
-  const [mint, setMint] = useState(SAMPLE_MINT);
+  const [mint, setMint] = useState("");
   const [walletInput, setWalletInput] = useState("");
   const [data, setData] = useState<TokenAnalysis | null>(null);
   const [walletData, setWalletData] = useState<WalletPortfolio | null>(null);
@@ -171,7 +171,8 @@ export function Dashboard() {
     const value = target.trim();
     setError("");
     setMode("token");
-    setMint(value || SAMPLE_MINT);
+    // The sample stays out of the input; a real lookup shows its mint.
+    setMint(options.demo ? "" : value);
     if (!options.demo && !SOLANA_ADDRESS.test(value)) {
       setError("Paste a Solana token mint: base58, 32–44 characters.");
       return;
@@ -221,7 +222,7 @@ export function Dashboard() {
     const value = target.trim();
     setError("");
     setMode("wallet");
-    setWalletInput(value);
+    setWalletInput(options.demo ? "" : value);
     if (!options.demo && !SOLANA_ADDRESS.test(value)) {
       setError("Paste a Solana wallet address: base58, 32–44 characters.");
       return;
@@ -241,7 +242,7 @@ export function Dashboard() {
       }
       if (request !== requestRef.current) return;
       setWalletData(body);
-      setWalletInput(body.wallet);
+      setWalletInput(options.demo ? "" : body.wallet);
       setView("wallet");
       if (!options.demo && options.push !== false) writeLocation("wallet", value);
       if (body.usage) setWalletUsage([{ label: "Wallet", usage: body.usage }]);
@@ -429,7 +430,7 @@ export function Dashboard() {
               id="lookup"
               value={mode === "token" ? mint : walletInput}
               onChange={(event) => (mode === "token" ? setMint(event.target.value) : setWalletInput(event.target.value))}
-              placeholder={mode === "token" ? SAMPLE_MINT : "Wallet address, e.g. from a trader board row"}
+              placeholder={mode === "token" ? "Paste a Solana token mint" : "Paste a Solana wallet address"}
               spellCheck={false}
               autoComplete="off"
               className="mint-input"

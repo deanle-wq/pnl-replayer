@@ -20,15 +20,15 @@ export function money(value: number, signed = false) {
   return `${value < 0 ? "−" : "+"}${body}`;
 }
 
-/** Token logo from Birdeye metadata, or a monogram when it is missing or fails. */
+/** Token logo from Birdeye metadata, trying each source in turn, or a monogram. */
 export function TokenAvatar({ src, symbol, size = 56 }: { src?: string; symbol: string; size?: number }) {
-  const [failed, setFailed] = useState(false);
-  const url = logoCandidates(src)[0];
-  if (!url || failed) {
+  const [attempt, setAttempt] = useState(0);
+  const url = logoCandidates(src)[attempt];
+  if (!url) {
     return <span className="token-avatar monogram" style={{ width: size, height: size, fontSize: size * 0.4 }} aria-hidden="true">{symbol.replace(/[^a-z0-9]/gi, "")[0]?.toUpperCase() ?? "?"}</span>;
   }
   // eslint-disable-next-line @next/next/no-img-element -- arbitrary remote hosts, shown as-is
-  return <img className="token-avatar" src={url} alt="" width={size} height={size} style={{ width: size, height: size }} referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
+  return <img className="token-avatar" src={url} alt="" width={size} height={size} style={{ width: size, height: size }} referrerPolicy="no-referrer" onError={() => setAttempt((value) => value + 1)} />;
 }
 
 /** (invested + PnL) / invested, as on the video card. */
