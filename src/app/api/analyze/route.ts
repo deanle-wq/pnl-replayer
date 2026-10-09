@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { analyzeToken } from "@/server/services/analyze-token";
-import { demoAnalysis } from "@/server/demo";
+import { demoAnalysis, isDemoMint } from "@/server/demo";
 import { resolveApiKey, upstreamError } from "@/server/api-key";
 import { rateLimited } from "@/server/guard";
 
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   const mint = params.get("mint")?.trim() ?? "";
   const audit = Number(params.get("audit") ?? process.env.AUDIT_WALLETS ?? 8);
 
-  if (params.get("demo") === "1") return NextResponse.json(demoAnalysis());
+  if (params.get("demo") === "1") return NextResponse.json(demoAnalysis(isDemoMint(mint) ? mint : undefined));
 
   const limited = rateLimited(request, "analyze");
   if (limited) return limited;

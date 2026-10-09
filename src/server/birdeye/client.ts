@@ -172,6 +172,36 @@ export class BirdeyeClient {
     };
   }
 
+  /** Name, symbol and logo for up to 20 mints in one call. */
+  async tokenMetadataMultiple(mints: string[]): Promise<Record<string, BirdeyeTokenMetadata>> {
+    if (mints.length === 0) return {};
+    const response = await this.request<{ data?: Record<string, BirdeyeTokenMetadata | null> }>(
+      "GET",
+      "/defi/v3/token/meta-data/multiple",
+      { query: { list_address: mints.join(",") } },
+    );
+    return Object.fromEntries(Object.entries(response.data ?? {}).filter((entry): entry is [string, BirdeyeTokenMetadata] => Boolean(entry[1])));
+  }
+
+  /** Every token a wallet traded, with WAC PnL per token, newest trade first. */
+  async walletPnlDetails(wallet: string, offset = 0, limit = 100): Promise<unknown> {
+    return this.request("POST", "/wallet/v2/pnl/details", {
+      body: { wallet, duration: "all", pnl_method: "wac", sort_by: "last_trade", sort_type: "desc", limit, offset },
+    });
+  }
+
+  /** Current holdings with price, value and logo, largest first. */
+  async walletPortfolio(wallet: string, limit = 100): Promise<unknown> {
+    return this.request("GET", "/wallet/v2/current-net-worth", {
+      query: { wallet, limit, offset: 0, sort_by: "value", sort_type: "desc" },
+    });
+  }
+
+  /** Birdeye's label for an address; empty for most wallets. */
+  async walletIdentity(wallet: string): Promise<unknown> {
+    return this.request("GET", "/identity/v1/single", { query: { address: wallet } });
+  }
+
   async tokenPrice(mint: string): Promise<number> {
     const response = await this.request<{
       success?: boolean;

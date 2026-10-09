@@ -3,7 +3,7 @@ import { BirdeyeClient } from "../birdeye/client";
 import type { BirdeyeCandle, BirdeyeTopTrader } from "../birdeye/types";
 import type { ApiUsage } from "../birdeye/usage";
 import type { LedgerResult } from "../pnl/ledger";
-import { auditWalletRow, chooseInterval } from "./wallet-ledger";
+import { auditWalletRow, chooseInterval, HISTORY_FLOOR } from "./wallet-ledger";
 
 export interface BuiltInPnlRow {
   counts?: { total_buy?: number | string; total_sell?: number | string; total_trade?: number | string };
@@ -212,7 +212,60 @@ async function analyzeTokenUncached(mint: string, requestedAudit: number | undef
   };
 }
 
+/**
+ * The token half of an analysis with no trader board: metadata, market data,
+ * spot and SOL prices, and the token's whole chart. Wallet mode opens a video
+ * from this, so a wallet's token never pays for a Top Traders sweep.
+ */
+async function tokenContextUncached(mint: string, apiKey: string): Promise<TokenAnalysis> {
+  const client = new BirdeyeClient(apiKey);
+  const now = Math.floor(Date.now() / 1_000);
+  const [metadata, solPriceUsd, tokenPriceUsd, market, daily] = await Promise.all([
+    client.tokenMetadata(mint),
+    client.tokenPrice("So11111111111111111111111111111111111111112"),
+    client.tokenPrice(mint),
+    client.tokenMarketData(mint).catch(() => null),
+    // Daily bars from the floor find where the token's history starts.
+    client.ohlcv(mint, HISTORY_FLOOR, now, "1D"),
+  ]);
+  const listedAt = daily[0]?.unixTime ?? now - 30 * 86_400;
+  const chartFrom = Math.max(HISTORY_FLOOR, listedAt - 3_600);
+  const interval = chooseInterval(now - chartFrom);
+  // Young tokens get finer bars than one per day.
+  const candles = interval === "1D" && daily.length > 0 ? daily : await client.ohlcv(mint, chartFrom, now, interval);
+  return {
+    token: { mint, name: metadata?.name, symbol: metadata?.symbol, logo: metadata?.logo_uri, decimals: metadata?.decimals },
+    generatedAt: now,
+    methodology: "wac+balance-reconciliation",
+    solPriceUsd,
+    spotPriceUsd: tokenPriceUsd > 0 ? tokenPriceUsd : candles.at(-1)?.c ?? 0,
+    market: market ?? undefined,
+    candles,
+    board: [],
+    usage: client.usage(),
+    auditSummary: { requested: 0, completed: 0, high: 0, medium: 0, low: 0 },
+  };
+}
+
 const analysisCache = new Map<string, { expiresAt: number; value: Promise<TokenAnalysis> }>();
+
+function cachedAnalysis(key: string, build: () => Promise<TokenAnalysis>): Promise<TokenAnalysis> {
+  const now = Date.now();
+  const cached = analysisCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.value;
+  const ttlMs = Math.max(0, Number(process.env.CACHE_TTL_SECONDS ?? 300)) * 1_000;
+  const value = build();
+  analysisCache.set(key, { expiresAt: now + ttlMs, value });
+  value.catch(() => {
+    if (analysisCache.get(key)?.value === value) analysisCache.delete(key);
+  });
+  return value;
+}
+
+export function tokenContext(mint: string, apiKey = process.env.BIRDEYE_API_KEY ?? ""): Promise<TokenAnalysis> {
+  const key = `${createHash("sha256").update(apiKey).digest("hex").slice(0, 12)}:${mint}:context`;
+  return cachedAnalysis(key, () => tokenContextUncached(mint, apiKey));
+}
 
 export async function analyzeToken(
   mint: string,

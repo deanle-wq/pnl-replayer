@@ -13,7 +13,7 @@ Birdeye Data handles for you, what it costs and where to extend it.
 | One wallet's fills | Decode every venue's instructions, price from pool balance deltas, convert SOL to USD with an outside feed | Wallet Balance Change (quantity) joined to Token Transactions V3 with `owner` (USD-priced) by signature | No decoders, no price feed |
 | PnL accounting | Write a ledger from scratch | Birdeye WAC baseline, plus this repo's conservative ledger with a confidence grade | Fast path and audit path from one provider |
 | Wallet names | Maintain your own label set | `POST /identity/v1/multiple` (not wired yet) | See "Extend" |
-| Wallet-first entry | Enumerate a wallet's token accounts | `POST /wallet/v2/pnl/details` (phase 2) | See "Extend" |
+| Wallet-first entry | Enumerate a wallet's token accounts, price every swap | `POST /wallet/v2/pnl/details` + `GET /wallet/v2/current-net-worth` | A wallet's whole token history and PnL in two calls |
 | Cost visibility | Count your own calls | Per-request CU meter built into the UI and the CLI | Cost is visible from the first call |
 | Video | Screenshot a charting library and layer DOM labels | One pure canvas renderer shared by preview and export, sound mixed in, 5–300 s, 16:9 / 9:16 / 1:1 at 1080p | The exported frames match the preview exactly |
 
@@ -44,6 +44,14 @@ Prices used by the meter:
 | `/defi/v3/token/txs` | 12 |
 | `/defi/v3/ohlcv` | 25 / 30 / 40 / 75 / 100 by candles returned |
 | `/defi/price`, `/defi/v3/token/meta-data/single` | 3 |
+| `/defi/v3/token/meta-data/multiple` | ceil(3 × mints^0.8) |
+| `/defi/v3/token/market-data` | 10 |
+| `/wallet/v2/pnl/details`, `/wallet/v2/current-net-worth`, `/identity/v1/single` | 30 each |
+
+Wallet mode, backtested on five live wallets (2026-10-09,
+`npm run backtest:wallet`): a wallet page costs 90 CU plus up to 165 CU of
+token metadata per 100 tokens, and opening one of its tokens adds about
+70–160 CU for the chart before the replay itself.
 
 ## Endpoint traps (verified live)
 
@@ -60,20 +68,15 @@ Prices used by the meter:
 
 ## Extend
 
-Ordered by value for a demo. Item 1 is planned for phase 2.
+Ordered by value for a demo.
 
-1. **Wallet-first entry (phase 2).** Paste a wallet; `POST /wallet/v2/pnl/details` (30 CU)
-   lists the tokens it traded with PnL. Pick one and open the video directly.
-2. **Wallet names.** Batch the board through `/identity/v1/multiple`
+1. **Wallet names.** Batch the board through `/identity/v1/multiple`
    (ceil(30 × n^0.8) CU, up to 100 addresses; needs a Premium plan) and show
    exchange and KOL labels.
-3. **Market-cap axis.** Multiply candles by the circulating supply the board
-   already reads from Token Market Data (the card's Entry MC does this for
-   one number). Meme traders read "$1.2M MC" faster than a sub-cent price.
-4. **Production guards.** Use a shared cache, a job queue for heavy wallets,
+2. **Production guards.** Use a shared cache, a job queue for heavy wallets,
    and CU ceilings per IP, per wallet and per day, with a pre-flight cost
    check before expensive work.
-5. **Voice-over.** Browser speech synthesis cannot be captured into the
+3. **Voice-over.** Browser speech synthesis cannot be captured into the
    export. A narrated result card needs a server-side TTS call mixed into the
    soundtrack buffer.
 

@@ -27,7 +27,13 @@ render in the browser with no server.
 2. **Ledger audit.** Any wallet can be rebuilt from its own balance changes,
    joined to decoded swaps by transaction signature. Each audit gets a
    high, medium or low confidence grade and a delta against Birdeye's number.
-3. **PnL video.** Each row opens a clip editor. It replays the wallet's own
+3. **Wallet mode.** Paste a wallet instead of a token. Every token it traded
+   or holds is listed with Birdeye Wallet PnL (WAC): logo, Invested,
+   realized and unrealized PnL, the multiple and its status. Each row opens
+   the same video editor or jumps to that token's trader board, and every
+   wallet on a trader board links back to its wallet page. Lookups live in
+   the URL (`?mint=` or `?wallet=`), so links share and Back works.
+4. **PnL video.** Each row opens a clip editor. It replays the wallet's own
    trading window candle by candle: buys and sells pop up, PnL and its
    multiple run live next to Invested, Entry MC and Sold, and it ends on a
    game-style result card with the wallet's tags. Export MP4 or WebM in 16:9,
@@ -133,12 +139,19 @@ in [API_MAPPING.md](./docs/API_MAPPING.md).
 | `/defi/v3/token/txs` | Swap side and USD price | 12 |
 | `/defi/v3/ohlcv` | Charts and replay candles | 25–100 |
 | `/defi/v3/token/market-data` | Circulating supply (Entry MC), market cap, holders | 10 |
+| `/wallet/v2/pnl/details` | Wallet mode: every token a wallet traded, WAC PnL per token, 100 per page | 30 |
+| `/wallet/v2/current-net-worth` | Wallet mode: current holdings, value and logos | 30 |
+| `/identity/v1/single` | Wallet mode: Birdeye's label for the wallet (KOL, exchange, .sol name) | 30 |
+| `/defi/v3/token/meta-data/multiple` | Wallet mode: names and logos, 20 tokens per call | ceil(3 × n^0.8) |
 | `/defi/price`, `/defi/v3/token/meta-data/single` | Spot mark, token name and logo | 3 |
 
 Measured on BONK (board 2026-10-09, everything else 2026-10-08):
 
 - A board plus the leading wallet's audit costs 78 requests and about 1,715 CU.
 - A 68-trade wallet's video ledger costs 32 requests and 389 CU.
+- A wallet page costs 90 CU plus up to 165 CU of token metadata per 100
+  tokens; opening one of its tokens adds about 70–160 CU for the chart
+  before the replay itself (backtested on five live wallets, 2026-10-09).
 
 The app shows these figures live. A **Built on Birdeye Data API** panel lists
 every endpoint called, and each replay prints its own requests and CU.
@@ -201,9 +214,11 @@ pnl-replayer/
 ├── src/
 │   ├── app/                     Next.js App Router
 │   │   ├── page.tsx             dashboard entry
-│   │   └── api/                 analyze · replay · ohlcv · health (server-only)
+│   │   └── api/                 analyze · wallet · token · replay · ohlcv · health
 │   ├── components/
-│   │   ├── dashboard.tsx        board, chart, Birdeye API usage panel
+│   │   ├── dashboard.tsx        token/wallet switch, board, chart, usage panel
+│   │   ├── wallet-view.tsx      wallet mode: summary and token list
+│   │   ├── shared.tsx           avatars, multiple pill, usage panel
 │   │   ├── wallet-video-modal.tsx  clip editor
 │   │   └── ui/                  shadcn/ui primitives on Radix
 │   ├── lib/                     pure, browser-safe logic
@@ -213,17 +228,19 @@ pnl-replayer/
 │   │   ├── wallet-video.ts      WebCodecs/Mediabunny encoder
 │   │   ├── wallet-tags.ts       invested, entry MC, multiple, tags
 │   │   ├── token-logo.ts        CORS-safe token logo loader
+│   │   ├── wallet-portfolio.ts  wallet mode types, filters, video row
+│   │   ├── identicon.ts         the wallet avatar shared by app and video
 │   │   └── replay-window.ts     wallet window and fill placement
 │   ├── server/
 │   │   ├── birdeye/             typed client, offset pagination, CU meter
 │   │   ├── pnl/ledger.ts        weighted-average-cost ledger
-│   │   ├── services/            analyze-token · wallet-ledger · wallet-replay
+│   │   ├── services/            analyze-token · wallet-ledger · wallet-replay · wallet-portfolio
 │   │   └── guard.ts             per-IP rate limit
 │   ├── proxy.ts                 optional site password
 │   └── styles/                  Birdeye Data brand tokens (unchanged)
 ├── public/brand/                Geist fonts and Birdeye Data logos
 ├── public/sfx/                  meme sound pack (see THIRD_PARTY_NOTICES.md)
-├── scripts/audit-wallet.ts      audit one wallet from the terminal
+├── scripts/                     audit-wallet · backtest-wallet (live checks)
 ├── tests/                       node:test suites
 └── docs/                        methodology, API mapping, builder guide, media
 ```
@@ -237,6 +254,7 @@ pnl-replayer/
 | `npm test` | Unit and integration tests (ledger, pagination, replay window, video scene, guards) |
 | `npm run typecheck` / `npm run lint` | TypeScript and ESLint |
 | `npm run audit -- <MINT> <WALLET>` | Print one wallet's ledger, confidence and Birdeye CU usage |
+| `npm run backtest:wallet -- <WALLET…> [empty]` | Live-check wallet mode: list invariants, paging, and replay baselines against the list |
 
 ## Extend it
 
@@ -244,9 +262,7 @@ pnl-replayer/
 for you and what each step costs. It also lists verified endpoint traps and
 ranks next extensions:
 
-- wallet-first entry (planned for phase 2)
-- wallet names via Birdeye identity
-- a market-cap axis
+- wallet names on every board row via Birdeye identity
 - shared cache and cost ceilings
 - server-side rendering for an auto-posting bot
 

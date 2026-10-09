@@ -1,9 +1,41 @@
+import { DEMO_WALLET, type WalletPortfolio, type WalletTokenRow } from "@/lib/wallet-portfolio";
 import type { BirdeyeCandle } from "./birdeye/types";
 import { calculateLedger, type LedgerEvent } from "./pnl/ledger";
 import type { TokenAnalysis, BoardRow } from "./services/analyze-token";
 
+/**
+ * Sample tokens. Real mints so links and logos make sense, synthetic candles
+ * and wallets, always labelled "demo dataset" in the UI.
+ */
+interface DemoToken {
+  mint: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  /** First close, and per-candle drift as a share of it. */
+  base: number;
+  drift: number;
+  phase: number;
+  supply: number;
+  /** Scales the sample wallets' trade sizes on this token. */
+  size: number;
+}
+
+const DEMO_TOKENS: DemoToken[] = [
+  { mint: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", symbol: "BONK", name: "Bonk — demo dataset", decimals: 5, base: 0.000021, drift: 0.0043, phase: 0, supply: 88_000_000_000_000, size: 1 },
+  { mint: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", symbol: "WIF", name: "dogwifhat — demo dataset", decimals: 6, base: 1.62, drift: -0.0026, phase: 1.7, supply: 998_840_000, size: 0.6 },
+  { mint: "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr", symbol: "POPCAT", name: "Popcat — demo dataset", decimals: 9, base: 0.41, drift: 0.0081, phase: 3.1, supply: 979_970_000, size: 1.6 },
+];
+
+/** A holding with no trades on record, to show the held-only state. */
+const DEMO_HELD = { mint: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN", symbol: "JUP", name: "Jupiter — demo dataset", amount: 12_400, price: 0.82 };
+
+export function isDemoMint(mint: string): boolean {
+  return DEMO_TOKENS.some((token) => token.mint === mint);
+}
+
 const wallets = [
-  "9xQeWvG816bUx9EPf5G7t8sMZyJ3qhYpK1nL2cV4bA6D",
+  DEMO_WALLET,
   "7YttLkHDoViQW4cjoBZydPUnF6gFEoXv3mN8sR1aK5Jq",
   "4Nd1mLr2D8S7YpK6H3qZ9cV5bA1xEoTjWfUuGkP8sR2",
   "HwPp3oL8fT7dN2qK5vB9mS1xC6aZ4yEJgRuU8iVwQ3k",
@@ -15,7 +47,7 @@ const wallets = [
   "MfDuWeqSHEqTFVYZ7LoexgAK9dxk7cy4DFJWjWMGVWa",
 ];
 
-function row(index: number, candles: BirdeyeCandle[]): BoardRow {
+function row(index: number, candles: BirdeyeCandle[], size = 1): BoardRow {
   const totals = [184_520, 72_430, 31_880, 9_210, 2_840, -1_760, -8_420, -27_310, -64_900, -142_800];
   const total = totals[index] ?? 0;
   const realized = total * (index % 3 === 0 ? 0.82 : 0.64);
@@ -44,7 +76,7 @@ function row(index: number, candles: BirdeyeCandle[]): BoardRow {
   const events: LedgerEvent[] = Array.from({ length: 14 }, (_, eventIndex) => {
     const candle = candles[Math.min(candles.length - 1, 8 + eventIndex * 12 + index)]!;
     const kind = eventIndex % 3 === 2 ? "sell" : "buy";
-    const valueUsd = 1_800 + eventIndex * 430 + index * 170;
+    const valueUsd = (1_800 + eventIndex * 430 + index * 170) * size;
     const settlementSymbol = eventIndex % 2 === 0 ? "SOL" : "USDC";
     return {
       signature: `demo-${index}-${eventIndex}`,
@@ -93,13 +125,14 @@ function row(index: number, candles: BirdeyeCandle[]): BoardRow {
   };
 }
 
-export function demoAnalysis(): TokenAnalysis {
+export function demoAnalysis(mint?: string): TokenAnalysis {
+  const spec = DEMO_TOKENS.find((token) => token.mint === mint) ?? DEMO_TOKENS[0]!;
   const now = Math.floor(Date.now() / 1_000);
-  let previousClose = 0.0000205;
+  let previousClose = spec.base * 0.976;
   const candles = Array.from({ length: 180 }, (_, index) => {
-    const trend = 0.000021 + index * 0.00000009;
-    const wave = Math.sin(index / 9) * 0.000003 + Math.sin(index / 23) * 0.0000015;
-    const close = Math.max(0.000004, trend + wave);
+    const trend = spec.base * (1 + index * spec.drift);
+    const wave = spec.base * (Math.sin(index / 9 + spec.phase) * 0.143 + Math.sin(index / 23 + spec.phase) * 0.071);
+    const close = Math.max(spec.base * 0.19, trend + wave);
     const open = previousClose;
     const wick = 0.012 + Math.abs(Math.sin(index / 4)) * 0.012;
     previousClose = close;
@@ -115,19 +148,88 @@ export function demoAnalysis(): TokenAnalysis {
   });
   return {
     demo: true,
-    token: {
-      mint: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-      name: "Bonk — demo dataset",
-      symbol: "BONK",
-      decimals: 5,
-    },
+    token: { mint: spec.mint, name: spec.name, symbol: spec.symbol, decimals: spec.decimals },
     generatedAt: now,
     methodology: "wac+balance-reconciliation",
     solPriceUsd: 145,
     spotPriceUsd: candles.at(-1)?.c ?? 0,
-    market: { circulatingSupply: 88_000_000_000_000, marketCapUsd: (candles.at(-1)?.c ?? 0) * 88_000_000_000_000, holders: 1_000_000 },
+    market: { circulatingSupply: spec.supply, marketCapUsd: (candles.at(-1)?.c ?? 0) * spec.supply, holders: 1_000_000 },
     candles,
-    board: wallets.map((_, index) => row(index, candles)).sort((a, b) => b.totalUsd - a.totalUsd),
+    board: wallets.map((_, index) => row(index, candles, spec.size)).sort((a, b) => b.totalUsd - a.totalUsd),
     auditSummary: { requested: 6, completed: 6, high: 3, medium: 2, low: 1 },
+  };
+}
+
+/** The sample wallet: the first demo trader across every demo token. */
+export function demoWallet(): WalletPortfolio {
+  const tokens: WalletTokenRow[] = DEMO_TOKENS.map((spec) => {
+    const analysis = demoAnalysis(spec.mint);
+    const board = analysis.board.find((entry) => entry.wallet === DEMO_WALLET)!;
+    const price = analysis.spotPriceUsd;
+    const valueUsd = board.holding * price;
+    return {
+      mint: spec.mint,
+      symbol: spec.symbol,
+      name: spec.name,
+      decimals: spec.decimals,
+      lastTradeAt: board.audit?.ledger.events.at(-1)?.timestamp ?? board.lastTradeAt,
+      status: valueUsd >= 1 ? "holding" : "closed",
+      buys: board.buys,
+      sells: board.sells,
+      investedUsd: board.boughtUsd,
+      soldUsd: board.soldUsd,
+      realizedUsd: board.realizedUsd,
+      unrealizedUsd: board.unrealizedUsd,
+      totalUsd: board.totalUsd,
+      holding: board.holding,
+      valueUsd,
+      priceUsd: price,
+      avgBuyPrice: board.avgBuyPrice,
+      avgSellPrice: board.avgSellPrice,
+    };
+  });
+  tokens.push({
+    mint: DEMO_HELD.mint,
+    symbol: DEMO_HELD.symbol,
+    name: DEMO_HELD.name,
+    status: "held",
+    buys: 0,
+    sells: 0,
+    investedUsd: 0,
+    soldUsd: 0,
+    realizedUsd: 0,
+    unrealizedUsd: 0,
+    totalUsd: 0,
+    holding: DEMO_HELD.amount,
+    valueUsd: DEMO_HELD.amount * DEMO_HELD.price,
+    priceUsd: DEMO_HELD.price,
+    avgBuyPrice: 0,
+    avgSellPrice: 0,
+  });
+  const traded = tokens.filter((token) => token.status !== "held");
+  const sum = (pick: (token: WalletTokenRow) => number) => traded.reduce((total, token) => total + pick(token), 0);
+  const wins = traded.filter((token) => token.totalUsd > 0).length;
+  return {
+    demo: true,
+    wallet: DEMO_WALLET,
+    identity: { label: "demo trader", tags: ["smart_trader"], domains: [] },
+    summary: {
+      tokens: traded.length + 2,
+      buys: sum((token) => token.buys),
+      sells: sum((token) => token.sells),
+      wins,
+      losses: traded.length - wins,
+      winRate: traded.length > 0 ? wins / traded.length : 0,
+      investedUsd: sum((token) => token.investedUsd),
+      soldUsd: sum((token) => token.soldUsd),
+      realizedUsd: sum((token) => token.realizedUsd),
+      unrealizedUsd: sum((token) => token.unrealizedUsd),
+      totalUsd: sum((token) => token.totalUsd),
+      valueUsd: tokens.reduce((total, token) => total + token.valueUsd, 0) + 4_210,
+    },
+    tokens,
+    hiddenQuoteAssets: 2,
+    nextOffset: null,
+    generatedAt: Math.floor(Date.now() / 1_000),
   };
 }

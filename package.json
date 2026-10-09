@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "audit": "tsx scripts/audit-wallet.ts"
+    "audit": "tsx scripts/audit-wallet.ts",
+    "backtest:wallet": "tsx scripts/backtest-wallet.ts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

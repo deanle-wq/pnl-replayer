@@ -16,7 +16,10 @@ inputs and flag missing basis, instead of returning a conclusion.
 | Supply, market cap and holders | `GET /defi/v3/token/market-data` | Entry market cap on the video (average buy price × circulating supply) and the board's MC and holder line |
 | Spot mark | `GET /defi/price` | Marks open inventory for unrealized PnL |
 | Wallet labels (extension) | `POST /identity/v1/multiple` | Exchange, protocol and KOL labels for board rows |
-| Wallet token list (phase 2) | `POST /wallet/v2/pnl/details` | Wallet-first entry: list the tokens a wallet traded |
+| Wallet mode token list | `POST /wallet/v2/pnl/details` | `pnl_method=wac`, newest trade first, 100 per page. SOL, USDC, USDT, USD1 and PYUSD rows are hidden: they are swap legs, and Birdeye's wallet summary already leaves them out |
+| Wallet mode holdings | `GET /wallet/v2/current-net-worth` | Current value, price and logo; untraded holdings (airdrops, transfers) are listed as "held, no trades" |
+| Wallet label | `GET /identity/v1/single` | Optional; most wallets return an empty identity. KOLs come back as e.g. `KOL: slingoor` |
+| Names and logos in bulk | `GET /defi/v3/token/meta-data/multiple` | 20 mints per call for traded tokens the portfolio does not cover |
 
 ## Production request flow
 
