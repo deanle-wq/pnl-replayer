@@ -90,9 +90,10 @@ Firewall rate-limit rule.
 | `RATE_LIMIT_PER_MINUTE` | `20` | Per-IP requests to analyze and replay (×3 for candles); `0` disables |
 | `AUDIT_WALLETS` | `8` | Wallets audited per `/api/analyze` call (the UI asks for 1) |
 | `AUDIT_MAX_EVENTS` | `10000` | Rows per wallet before a ledger is marked truncated |
-| `AUDIT_MAX_TRADES` | `5000` | Above this, a wallet's video uses side-balanced sampling |
+| `AUDIT_MAX_TRADES` | `5000` | Board audit skips wallets above this many trades |
+| `REPLAY_MAX_TRADES` | `7500` | Above this, a wallet's video samples instead of reading its full ledger |
 | `CANDIDATES_PER_LENS` | `10` | Top Traders rows per ranking lens (10–30) |
-| `BIRDEYE_CONCURRENCY` | `8` | Parallel Birdeye requests per process |
+| `BIRDEYE_CONCURRENCY` | `12` | Parallel Birdeye requests per process |
 | `CACHE_TTL_SECONDS` | `300` | In-process cache for responses and analyses |
 
 [`.env.example`](./.env.example) documents every variable.
@@ -149,6 +150,11 @@ every endpoint called, and each replay prints its own requests and CU.
 - **Every fill plotted.** Each fill appears as a ▲ or ▼ marker, alongside an
   average-cost line and a live price tag. Fills inside missing candles snap to
   the nearest drawn bar.
+- **When swaps are missing.** Sometimes Token Transactions returns far fewer
+  decoded swaps than the trades Birdeye counts. The markers then come from the
+  wallet's balance changes, priced from OHLCV and labelled as inferred, and
+  PnL stays on Birdeye WAC. The editor shows the coverage. Holder-only
+  wallets (no swaps at all) are labelled on the board.
 - **Popups.** Glass pills over a colour wash. Bursts of fills share one popup
   whose number climbs as they land.
 - **Sound packs.**

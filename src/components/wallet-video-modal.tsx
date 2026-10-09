@@ -58,7 +58,7 @@ import type { BirdeyeCandle } from "@/server/birdeye/types";
 import type { ApiUsage } from "@/server/birdeye/usage";
 import type { LedgerEvent } from "@/server/pnl/ledger";
 import type { BoardRow, TokenAnalysis } from "@/server/services/analyze-token";
-import type { WalletReplay } from "@/server/services/wallet-replay";
+import type { ReplayCoverage, WalletReplay } from "@/server/services/wallet-replay";
 
 const CLIP_DURATIONS = [6, 10, 15, 30, 60, 120, 300] as const;
 const LOGO_SRC = "/brand/logos/Birdeye_Data_Horizontal_Light.svg";
@@ -117,7 +117,7 @@ type ReplayRangeKind = "wallet" | "token";
 
 /** What the clip replays: an audited ledger, or Birdeye WAC totals with a trade path. */
 interface ReplayView {
-  mode: "audited" | "truncated" | "sample" | "summary";
+  mode: "audited" | "truncated" | "sample" | "inferred" | "summary";
   row: BoardRow;
   events: LedgerEvent[];
   note?: string;
@@ -236,7 +236,7 @@ export function WalletVideoModal({
 
   const [fetched, setFetched] = useState<ReplayView | null>(null);
   const [replayError, setReplayError] = useState("");
-  const [replayStats, setReplayStats] = useState<{ usage: ApiUsage; elapsedMs: number } | null>(null);
+  const [replayStats, setReplayStats] = useState<{ usage: ApiUsage; elapsedMs: number; coverage?: ReplayCoverage } | null>(null);
   const hasAudit = Boolean(row.audit);
   const needsLedger = !hasAudit && !data.demo;
   const replay = useMemo<ReplayView | null>(() => {
@@ -256,7 +256,7 @@ export function WalletVideoModal({
     void requestReplay(params)
       .then((result) => {
         if (cancelled) return;
-        setReplayStats({ usage: result.usage, elapsedMs: result.elapsedMs });
+        setReplayStats({ usage: result.usage, elapsedMs: result.elapsedMs, coverage: result.coverage });
         if (result.mode === "ledger" && result.row.audit && !result.row.audit.truncated) {
           const audited: BoardRow = {
             ...result.row,
@@ -273,12 +273,19 @@ export function WalletVideoModal({
             events: result.row.audit?.ledger.events ?? [],
             note: "The full ledger reached the event ceiling, so PnL follows Birdeye WAC. Markers use every event that was read.",
           });
-        } else {
+        } else if (result.mode === "sample") {
           setFetched({
             mode: "sample",
             row: baseRow,
             events: result.events,
             note: `${result.reason}. Markers come from ${result.sampled ? "a sample of " : ""}buy and sell pages read separately across ${result.windows} windows of this wallet's span; PnL lands on Birdeye WAC.`,
+          });
+        } else {
+          setFetched({
+            mode: "inferred",
+            row: baseRow,
+            events: result.events,
+            note: `${result.reason}. Markers come from this wallet's balance changes instead: tokens in read as buys, tokens out as sells, priced at the OHLCV close. PnL lands on Birdeye WAC.`,
           });
         }
       })
@@ -649,12 +656,22 @@ export function WalletVideoModal({
     ? `Audited ledger · ${audit?.confidence} confidence`
     : replay?.mode === "sample"
       ? "Birdeye WAC · sampled trades"
+      : replay?.mode === "inferred"
+        ? "Birdeye WAC · fills from balance changes"
       : replay?.mode === "truncated"
         ? "Birdeye WAC · truncated ledger"
         : replayLoading
           ? "Building wallet ledger"
           : "Birdeye WAC summary";
   const busy = rendering;
+  // Rough wait so a deep read does not look like a hang: ~2 Birdeye pages per
+  // 100 trades, a few seconds each on busy tokens, 12 in flight.
+  const knownTrades = baseRow.buys + baseRow.sells;
+  const loadingMessage = knownTrades > 7_500
+    ? `Sampling ${knownTrades.toLocaleString()} trades…`
+    : knownTrades > 800
+      ? `Reading ${knownTrades.toLocaleString()} trades in full · about ${Math.max(10, Math.round(knownTrades * 0.008))}s`
+      : "Reading balance changes and swaps…";
 
   return (
     <Dialog
@@ -694,7 +711,7 @@ export function WalletVideoModal({
               {/* Sized in JSX: the dialog mounts through a portal, after effects that read the ref. */}
               <canvas ref={attachCanvas} width={VIDEO_FORMATS[shape].width} height={VIDEO_FORMATS[shape].height} aria-label="Video preview" />
               {(replayLoading || timeframeLoading) && (
-                <div className="video-stage-status">{replayLoading ? "Reading balance changes and swaps…" : `Loading ${timeframe} candles…`}</div>
+                <div className="video-stage-status">{replayLoading ? loadingMessage : `Loading ${timeframe} candles…`}</div>
               )}
               {!replayLoading && !timeframeLoading && sound.enabled && !audioRunning && (
                 <button type="button" className="video-stage-status sound-blocked" onClick={() => audioRef.current?.unlock()}>
@@ -736,10 +753,17 @@ export function WalletVideoModal({
                 <b>
                   {replayLoading
                     ? "Building wallet ledger…"
-                    : `${bins.plotted.toLocaleString()} of ${fills.toLocaleString()} trades plotted${bins.outside > 0 ? ` · ${bins.outside.toLocaleString()} outside range` : ""}`}
+                    : !series
+                      ? `${fills.toLocaleString()} trades loaded · loading chart…`
+                      : `${bins.plotted.toLocaleString()} of ${fills.toLocaleString()} trades plotted${bins.outside > 0 ? ` · ${bins.outside.toLocaleString()} outside range` : ""}`}
                 </b>
               </div>
-              {replay?.mode === "audited" && audit && (
+              {replay?.mode === "audited" && audit && audit.ledger.buys + audit.ledger.sells === 0 && (
+                <p className="video-note warn">
+                  No swaps on this token: this wallet only received or sent it ({audit.ledger.transfersIn + audit.ledger.transfersOut} transfers), so there is nothing to mark. Holder wallets like exchanges and treasuries appear on the board through the holdings ranking.
+                </p>
+              )}
+              {replay?.mode === "audited" && audit && audit.ledger.buys + audit.ledger.sells > 0 && (
                 <p className="video-note">
                   PnL replays the ledger at each candle: {audit.ledger.buys} buys, {audit.ledger.sells} sells, {audit.ledger.transfersIn + audit.ledger.transfersOut} transfers.
                   {" "}Δ vs Birdeye WAC {compactUsd(audit.deltaUsd)}{audit.reasons.length > 0 ? `. ${audit.reasons.join("; ")}.` : "."}
@@ -748,6 +772,12 @@ export function WalletVideoModal({
               {replay?.note && <p className="video-note">{replay.note}</p>}
               {replay?.mode === "summary" && !replayLoading && (
                 <p className="video-note">{replayError ? `Ledger unavailable (${replayError}). ` : ""}Birdeye WAC totals only: no trade markers, PnL counts up to the final summary.</p>
+              )}
+              {replayStats?.coverage && (
+                <p className="video-note">
+                  Data coverage: Birdeye counts {replayStats.coverage.birdeyeTrades.toLocaleString()} trades · {replayStats.coverage.decodedFills.toLocaleString()} decoded swaps
+                  {replayStats.coverage.balanceEvents !== undefined ? ` · ${replayStats.coverage.balanceEvents.toLocaleString()} balance changes` : ""}
+                </p>
               )}
               {replayStats && <p className="video-note"><UsageLine usage={replayStats.usage} elapsedMs={replayStats.elapsedMs} /> for this replay</p>}
             </div>

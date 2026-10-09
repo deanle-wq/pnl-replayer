@@ -156,7 +156,7 @@ test("heavy wallets sample their own span and read buys and sells separately", a
   ];
   serve({
     "/wallet/v2/pnl/multiple": () => ({
-      data: { data: { [wallet]: { counts: { total_buy: 5_900, total_sell: 1_100 }, quantity: { holding: 100 }, pnl: { total_usd: 1 } } } },
+      data: { data: { [wallet]: { counts: { total_buy: 12_000, total_sell: 3_000 }, quantity: { holding: 100 }, pnl: { total_usd: 1 } } } },
     }),
     "/defi/price": () => ({ data: { value: 1 } }),
     "/defi/v3/token/txs": tradesRoute(trades),
@@ -170,10 +170,64 @@ test("heavy wallets sample their own span and read buys and sells separately", a
   assert.ok(tradeCalls.every((call) => ["buy", "sell"].includes(call.query.get("tx_type") ?? "")));
   assert.equal(tradeCalls.filter((call) => call.query.get("tx_type") === "buy").length, result.windows);
   assert.equal(tradeCalls.filter((call) => call.query.get("tx_type") === "sell").length, result.windows);
+  const now = Math.floor(Date.now() / 1_000);
   for (const call of tradeCalls) {
-    assert.ok(Number(call.query.get("after_time")) >= first - 3_600);
-    assert.ok(Number(call.query.get("before_time")) <= last + 3_600);
+    assert.ok(Number(call.query.get("after_time")) >= first - 3_600, "never before the wallet's first trade");
+    // Top Traders' last-trade time can lag, so the sample runs to now.
+    assert.ok(Number(call.query.get("before_time")) <= now + 5);
   }
+  assert.ok(tradeCalls.some((call) => Number(call.query.get("before_time")) > last), "covers time after the reported last trade");
   assert.ok(result.events.some((event) => event.signature === "lonely-sell" && event.kind === "sell"));
   assert.equal(result.sampled, true, "a full buy page is reported as a sample");
+});
+
+test("decoded swaps missing for most trades: markers come from balance changes", async () => {
+  const wallet = "WalletUndecoded11111111111111111111111111111";
+  const changes = Array.from({ length: 30 }, (_, index) =>
+    change(wallet, `sig-${index}`, T0 + index * 3_600, index % 3 === 2 ? 20 : 10, index % 3 === 2 ? 10 : 20));
+  serve({
+    "/wallet/v2/pnl/multiple": () => ({
+      data: { data: { [wallet]: { counts: { total_buy: 80, total_sell: 20 }, quantity: { holding: 10 }, pnl: { total_usd: 773_366 } } } },
+    }),
+    "/defi/price": () => ({ data: { value: 1 } }),
+    "/wallet/v2/balance-change": (query) => ({ data: { items: Number(query.get("offset")) === 0 ? changes : [] } }),
+    "/defi/v3/token/txs": () => ({ data: { items: [], has_next: false } }),
+    "/defi/v3/ohlcv": () => ({ data: { items: [{ unix_time: T0 - 3_600, o: 2, h: 2, l: 2, c: 2, v: 1 }] } }),
+  });
+
+  const result = await walletReplay({ mint: MINT, wallet });
+  assert.equal(result.mode, "inferred");
+  if (result.mode !== "inferred") return;
+  assert.equal(result.events.length, 30);
+  assert.ok(result.events.every((event) => event.kind === "buy" || event.kind === "sell"));
+  assert.equal(result.events.filter((event) => event.kind === "sell").length, 10);
+  assert.ok(result.events.every((event) => event.priceUsd === 2 && event.exactExecution === false));
+  assert.deepEqual(result.coverage, { birdeyeTrades: 100, decodedFills: 0, balanceEvents: 30 });
+  assert.equal(result.row.totalUsd, 773_366, "PnL stays on Birdeye WAC");
+});
+
+test("a heavy wallet whose sampled windows return no swaps falls back to balance changes", async () => {
+  const wallet = "WalletHeavyNoSwaps111111111111111111111111111";
+  serve({
+    "/wallet/v2/pnl/multiple": () => ({
+      data: { data: { [wallet]: { counts: { total_buy: 20_000, total_sell: 0 }, quantity: { holding: 5 }, pnl: { total_usd: 9 } } } },
+    }),
+    "/defi/price": () => ({ data: { value: 1 } }),
+    "/defi/v3/token/txs": () => ({ data: { items: [], has_next: false } }),
+    "/wallet/v2/balance-change": (query) => {
+      const from = Number(query.get("time_from"));
+      const to = Number(query.get("time_to"));
+      const at = T0 + 5 * DAY;
+      return { data: { items: at >= from && at <= to ? [change(wallet, "acc-1", at, 0, 5)] : [] } };
+    },
+    "/defi/v3/ohlcv": () => ({ data: { items: [{ unix_time: T0, o: 3, h: 3, l: 3, c: 3, v: 1 }] } }),
+  });
+
+  const result = await walletReplay({ mint: MINT, wallet, firstTradeAt: T0 });
+  assert.equal(result.mode, "inferred");
+  if (result.mode !== "inferred") return;
+  assert.equal(result.events.length, 1);
+  assert.equal(result.events[0]?.kind, "buy");
+  assert.equal(result.coverage.decodedFills, 0);
+  assert.ok(calls.some((call) => call.path === "/wallet/v2/balance-change"));
 });

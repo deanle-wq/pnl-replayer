@@ -68,7 +68,9 @@ export async function crawlWalletHistory(options: {
     from,
     to,
     maxItems: maxEvents,
-    prefetchPages: Math.min(25, Math.max(1, Math.ceil(expected / 100) + 1)),
+    // Fetch every page the trade count predicts at once (the client's gate
+    // still caps concurrency); paging one by one made 10k-trade wallets slow.
+    prefetchPages: Math.min(100, Math.max(1, Math.ceil(expected / 100) + 2)),
     fetchPage: (start, end, offset, limit) =>
       client.balanceChangesPage(wallet, mint, start, end, offset, limit),
     key: (item) => `${item.tx_hash}:${item.token_account ?? ""}`,
@@ -86,7 +88,7 @@ export async function crawlWalletHistory(options: {
         from: Math.max(from, bucket * TRADE_WINDOW_SECONDS),
         to: Math.min(to, (bucket + 1) * TRADE_WINDOW_SECONDS - 1),
         maxItems: maxEvents,
-        prefetchPages: Math.min(5, Math.max(1, Math.ceil(changeCount / 100) + 1)),
+        prefetchPages: Math.min(25, Math.max(1, Math.ceil(changeCount / 100) + 1)),
         fetchPage: (start, end, offset, limit) =>
           client.tokenWalletTradesPage(mint, wallet, start, end, offset, limit),
         key: tradeKey,

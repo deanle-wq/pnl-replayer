@@ -62,7 +62,7 @@ export class BirdeyeClient {
     this.baseUrl = process.env.BIRDEYE_BASE_URL ?? "https://public-api.birdeye.so";
     this.retries = Number(process.env.BIRDEYE_MAX_RETRIES ?? 4);
     this.timeoutMs = Number(process.env.BIRDEYE_TIMEOUT_MS ?? 20_000);
-    this.gate = new Gate(Math.max(1, Number(process.env.BIRDEYE_CONCURRENCY ?? 8)));
+    this.gate = new Gate(Math.max(1, Number(process.env.BIRDEYE_CONCURRENCY ?? 12)));
   }
 
   private url(path: string, query: Record<string, QueryValue> = {}): URL {

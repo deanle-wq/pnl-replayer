@@ -76,7 +76,10 @@ function PriceChart({ values }: { values: TokenAnalysis["candles"] }) {
   );
 }
 
-function Confidence({ level }: { level?: "high" | "medium" | "low" }) {
+function Confidence({ level, holderOnly }: { level?: "high" | "medium" | "low"; holderOnly?: boolean }) {
+  if (!level && holderOnly) {
+    return <Badge variant="outline" className="pill neutral" title="No swaps on this token: ranked by holdings only">Holder only</Badge>;
+  }
   if (!level) return <Badge variant="outline" className="pill neutral">Birdeye WAC</Badge>;
   const Icon = level === "high" ? CheckCircle : level === "medium" ? ShieldCheck : WarningCircle;
   return (
@@ -357,7 +360,7 @@ export function Dashboard() {
                     <tr key={row.wallet}>
                       <td className="rank">{String(index + 1).padStart(2, "0")}</td>
                       <td className="wallet-cell"><code title={row.wallet}>{short(row.wallet)}</code>{row.tags?.slice(0, 2).map((tag) => <small key={tag}>{tag.replaceAll("_", " ")}</small>)}</td>
-                      <td><Confidence level={row.audit?.confidence} /></td>
+                      <td><Confidence level={row.audit?.confidence} holderOnly={row.buys + row.sells === 0} /></td>
                       <td className={`number ${row.realizedUsd < 0 ? "negative" : "positive"}`}>{money(row.realizedUsd, true)}</td>
                       <td className={`number ${row.unrealizedUsd < 0 ? "negative" : "positive"}`}>{money(row.unrealizedUsd, true)}</td>
                       <td className={`number total ${row.totalUsd < 0 ? "negative" : "positive"}`}>{money(row.totalUsd, true)}</td>
