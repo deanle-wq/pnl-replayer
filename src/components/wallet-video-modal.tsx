@@ -49,6 +49,8 @@ import {
   downloadVideo,
   encodeWalletVideo,
   findVideoEncoder,
+  FRAME_RATES,
+  type FrameRate,
   MAX_VIDEO_SECONDS,
   MIN_VIDEO_SECONDS,
   VIDEO_FORMATS,
@@ -340,6 +342,8 @@ export function WalletVideoModal({
   const [timeframeError, setTimeframeError] = useState("");
   const [shape, setShape] = useState<VideoShape>("portrait");
   const [clipSeconds, setClipSeconds] = useState<number>(15);
+  // 60 fps by default where the encoder takes it: the chart scrolls every frame.
+  const [fpsChoice, setFpsChoice] = useState<FrameRate>(60);
   const [durationDraft, setDurationDraft] = useState("15");
   const [holdSeconds, setHoldSeconds] = useState(1.1);
   const [quoteUnit, setQuoteUnit] = useState<QuoteUnit>("USDC");
@@ -621,6 +625,7 @@ export function WalletVideoModal({
     setPlaying((value) => !value);
   };
 
+  const fps: FrameRate = encoder && encoder !== "probing" ? (Math.min(fpsChoice, encoder.maxFps) as FrameRate) : fpsChoice;
   const exportVideo = async () => {
     if (!encoder || encoder === "probing" || !scene) return;
     setError("");
@@ -635,12 +640,13 @@ export function WalletVideoModal({
         shape,
         encoder,
         seconds: clipSeconds,
+        fps,
         audio,
         draw: (ctx, seconds) => drawVideoFrame(ctx, seconds, scene),
         onProgress: setRenderProgress,
         signal: controller.signal,
       });
-      const name = `pnl-replayer-${data.token.symbol ?? "token"}-${row.wallet.slice(0, 8)}-${scene.timeframe}-${clipSeconds}s-${VIDEO_FORMATS[shape].label.replace(":", "x")}.${encoder.ext}`;
+      const name = `pnl-replayer-${data.token.symbol ?? "token"}-${row.wallet.slice(0, 8)}-${scene.timeframe}-${clipSeconds}s-${fps}fps-${VIDEO_FORMATS[shape].label.replace(":", "x")}.${encoder.ext}`;
       const url = URL.createObjectURL(blob);
       setGenerated({ url, name });
       downloadVideo(blob, name);
@@ -924,6 +930,19 @@ export function WalletVideoModal({
                     <span>sec</span>
                   </label>
                 </div>
+                <Label className="field-label">Frame rate <small>{fps === 60 ? "smoother, about twice the render time" : "faster render, smaller file"}</small></Label>
+                <Segmented
+                  label="Frame rate"
+                  options={FRAME_RATES.map(String)}
+                  value={String(fps)}
+                  onChange={(value) => {
+                    setFpsChoice(Number(value) as FrameRate);
+                    setGenerated(null);
+                  }}
+                  disabled={busy}
+                  isDisabled={(value) => Boolean(encoder && encoder !== "probing" && Number(value) > encoder.maxFps)}
+                  render={(value) => `${value} fps`}
+                />
                 <Label className="field-label">Trade values in</Label>
                 <Segmented
                   label="Trade value unit"
@@ -1020,7 +1039,7 @@ export function WalletVideoModal({
                   <a href={generated.url} download={generated.name}><DownloadSimple size={15} weight="bold" />Save {encoder && encoder !== "probing" ? encoder.ext.toUpperCase() : "video"}</a>
                 </div>
               )}
-              <p className="field-hint">{clipSeconds}s at 30 fps · {sound.enabled ? "with sound" : "silent"} · rendered frame by frame in this browser</p>
+              <p className="field-hint">{clipSeconds}s at {fps} fps · {sound.enabled ? "with sound" : "silent"} · rendered frame by frame in this browser</p>
             </section>
           </aside>
         </div>

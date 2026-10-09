@@ -179,8 +179,9 @@ every endpoint called, and each replay prints its own requests and CU.
   exportable. Arweave and IPFS logos load directly; other hosts go through
   the open [wsrv.nl](https://wsrv.nl) image proxy, and a monogram stands in
   when neither works.
-- **Formats.** 16:9, 9:16 or 1:1, 5–300 s, rendered frame by frame at 30 fps
-  and about 6–8 Mbps.
+- **Formats.** 16:9, 9:16 or 1:1, 5–300 s, rendered frame by frame at 60 fps
+  (about 12 Mbps, H.264 level 4.2) or 30 fps (about 8 Mbps). 60 fps is the
+  default wherever the browser's encoder accepts it.
 
 | Browser | Export |
 |---|---|
