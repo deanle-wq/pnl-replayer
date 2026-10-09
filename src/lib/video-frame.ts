@@ -1,7 +1,7 @@
 import type { BirdeyeCandle } from "@/server/birdeye/types";
 import type { LedgerEvent } from "@/server/pnl/ledger";
 import type { BoardRow } from "@/server/services/analyze-token";
-import { TIMEFRAME_SECONDS, type ReplayTimeframe } from "./replay-timeframe";
+import type { ReplayTimeframe } from "./replay-timeframe";
 import type { EventBins } from "./replay-window";
 import {
   activeLabels,
@@ -63,7 +63,10 @@ interface Layout {
   pad: number;
   header: Rect;
   chart: Rect;
-  footer: Rect;
+  /** Bottom band: Invested, Entry MC and Sold, with the brand logo. */
+  stats: Rect;
+  /** Wide formats put the logo at the band's right end; portrait sets it under the band. */
+  logoInBand: boolean;
   /** Portrait stacks identity, PnL and stats; wide formats split them left and right. */
   stackedHeader: boolean;
   labelAt: "top" | "bottom";
@@ -84,9 +87,10 @@ function layoutFor(shape: VideoShape): Layout {
   if (shape === "portrait") {
     return {
       pad: 72,
-      header: { x: 72, y: 72, w: 936, h: 430 },
-      chart: { x: 72, y: 540, w: 936, h: 1126 },
-      footer: { x: 72, y: 1716, w: 936, h: 130 },
+      header: { x: 72, y: 72, w: 936, h: 310 },
+      chart: { x: 72, y: 420, w: 936, h: 1160 },
+      stats: { x: 72, y: 1616, w: 936, h: 130 },
+      logoInBand: false,
       stackedHeader: true,
       labelAt: "bottom",
       visibleBars: 46,
@@ -104,9 +108,10 @@ function layoutFor(shape: VideoShape): Layout {
   if (shape === "square") {
     return {
       pad: 60,
-      header: { x: 60, y: 48, w: 960, h: 214 },
-      chart: { x: 60, y: 286, w: 960, h: 630 },
-      footer: { x: 60, y: 940, w: 960, h: 100 },
+      header: { x: 60, y: 48, w: 960, h: 140 },
+      chart: { x: 60, y: 196, w: 960, h: 690 },
+      stats: { x: 60, y: 912, w: 960, h: 120 },
+      logoInBand: true,
       stackedHeader: false,
       labelAt: "top",
       visibleBars: 64,
@@ -123,9 +128,10 @@ function layoutFor(shape: VideoShape): Layout {
   }
   return {
     pad: 72,
-    header: { x: 72, y: 52, w: 1776, h: 260 },
-    chart: { x: 72, y: 340, w: 1776, h: 620 },
-    footer: { x: 72, y: 990, w: 1776, h: 70 },
+    header: { x: 72, y: 52, w: 1776, h: 170 },
+    chart: { x: 72, y: 246, w: 1776, h: 690 },
+    stats: { x: 72, y: 962, w: 1776, h: 100 },
+    logoInBand: true,
     stackedHeader: false,
     labelAt: "top",
     visibleBars: 96,
@@ -628,7 +634,6 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
   const symbolX = H.x + S.token * 1.26;
   const symbolY = H.y + S.token / 2 + S.symbol * 0.36;
   drawTokenAvatar(ctx, scene.tokenLogo, scene.symbol, H.x, H.y, S.token);
-  let statsY: number;
   if (L.stackedHeader) {
     const walletW = walletBlock(ctx, scene.wallet, role, H.x + H.w, H.y + S.token / 2, S.wallet, "right", true);
     fitText(ctx, symbolText, symbolX, symbolY, H.x + H.w - walletW - S.wallet - symbolX, 700, S.symbol, C.text);
@@ -636,7 +641,6 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
     caption(ctx, "TOTAL PNL", H.x, captionY, S.caption);
     const baseline = captionY + S.pnl * 0.98;
     pnlGroup(ctx, pnlText, multipleText, H.x, baseline, H.w, S.pnl, S.pill, metrics.totalUsd, "left");
-    statsY = baseline + S.pnl * 0.3;
   } else {
     const symbolW = fitText(ctx, symbolText, symbolX, symbolY, H.w * 0.4, 700, S.symbol, C.text);
     const walletCy = H.y + S.token + S.wallet * 1.9;
@@ -646,42 +650,7 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
     caption(ctx, "TOTAL PNL", H.x + H.w, captionY, S.caption, C.text3, "right");
     const baseline = captionY + S.pnl * 0.96;
     pnlGroup(ctx, pnlText, multipleText, H.x + H.w, baseline, H.w - leftW - S.pnl * 0.4, S.pnl, S.pill, metrics.totalUsd, "right");
-    statsY = Math.max(walletCy + S.wallet * 1.2, baseline) + S.statCaption * 1.5;
   }
-
-  const cells = [
-    { label: "INVESTED", side: "buy" as const, text: unitText(totals.bought), color: C.text },
-    { label: entry.label, text: entry.text, color: C.text },
-    { label: "SOLD", side: "sell" as const, text: unitText(totals.sold), color: totals.sold > 0 ? C.brand : C.text },
-  ];
-  const cellW = H.w / cells.length;
-  const captionBase = statsY + S.statCaption * 1.9;
-  const valueBase = captionBase + S.statValue * 1.15;
-  ctx.strokeStyle = C.line;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(H.x, statsY);
-  ctx.lineTo(H.x + H.w, statsY);
-  for (let column = 1; column < cells.length; column += 1) {
-    ctx.moveTo(H.x + column * cellW, statsY + S.statCaption * 0.9);
-    ctx.lineTo(H.x + column * cellW, valueBase + S.statValue * 0.2);
-  }
-  ctx.stroke();
-  cells.forEach((cell, index) => {
-    const x = H.x + index * cellW + (index === 0 ? 0 : S.statCaption * 1.2);
-    let captionX = x;
-    if (cell.side) {
-      const radius = S.statCaption * 0.62;
-      sideBadge(ctx, x + radius, captionBase - S.statCaption * 0.36, radius, cell.side);
-      captionX += radius * 2 + S.statCaption * 0.5;
-    }
-    caption(ctx, cell.label, captionX, captionBase, S.statCaption);
-    ctx.font = font(700, S.statValue);
-    const fit = Math.min(1, (cellW - S.statCaption * 2.4) / Math.max(numberWidth(ctx, cell.text), 1));
-    ctx.font = font(700, S.statValue * fit);
-    ctx.fillStyle = cell.color;
-    drawNumber(ctx, cell.text, x, valueBase);
-  });
 
   // ── Chart ─────────────────────────────────────────────────────────────
   const R = L.chart;
@@ -890,22 +859,50 @@ export function drawVideoFrame(ctx: CanvasRenderingContext2D, t: number, scene: 
     ctx.restore();
   }
 
-  // ── Footer: progress, moment, basis, logo ────────────────────────────
-  const F = L.footer;
-  ctx.fillStyle = C.raised;
-  ctx.fillRect(F.x, F.y, F.w, 4);
-  ctx.fillStyle = C.brand;
-  ctx.fillRect(F.x, F.y, F.w * reveal, 4);
-  const timeOptions: Intl.DateTimeFormatOptions = TIMEFRAME_SECONDS[scene.timeframe] < 86_400
-    ? { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }
-    : { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" };
-  const moment = new Date((reveal >= 1 ? candles.at(-1)! : settledCandle).unixTime * 1_000).toLocaleString("en-US", timeOptions);
-  ctx.font = font(500, S.footer);
-  ctx.fillStyle = C.text2;
-  ctx.fillText(`${moment} UTC`, F.x, F.y + S.footer * 2.2);
-  ctx.fillStyle = C.text3;
-  ctx.fillText(scene.basis, F.x, F.y + S.footer * 3.7);
-  drawLogo(ctx, scene.logo, F.x + F.w, F.y + S.footer * 1.2, S.logo, "right");
+  // ── Bottom band: Invested, Entry MC, Sold, and the logo ──────────────
+  const B = L.stats;
+  const logoW = scene.logo && "width" in scene.logo && Number(scene.logo.width) > 0
+    ? (S.logo * Number(scene.logo.width)) / Number(scene.logo.height || 1)
+    : S.logo * 6;
+  const cellsW = L.logoInBand ? B.w - logoW - S.statCaption * 2 : B.w;
+  const cells = [
+    { label: "INVESTED", side: "buy" as const, text: unitText(totals.bought), color: C.text },
+    { label: entry.label, text: entry.text, color: C.text },
+    { label: "SOLD", side: "sell" as const, text: unitText(totals.sold), color: totals.sold > 0 ? C.brand : C.text },
+  ];
+  const cellW = cellsW / cells.length;
+  const captionBase = B.y + S.statCaption * 1.9;
+  const valueBase = captionBase + S.statValue * 1.15;
+  ctx.strokeStyle = C.line;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(B.x, B.y);
+  ctx.lineTo(B.x + B.w, B.y);
+  for (let column = 1; column < cells.length; column += 1) {
+    ctx.moveTo(B.x + column * cellW, B.y + S.statCaption * 0.9);
+    ctx.lineTo(B.x + column * cellW, valueBase + S.statValue * 0.2);
+  }
+  ctx.stroke();
+  cells.forEach((cell, index) => {
+    const x = B.x + index * cellW + (index === 0 ? 0 : S.statCaption * 1.2);
+    let captionX = x;
+    if (cell.side) {
+      const radius = S.statCaption * 0.62;
+      sideBadge(ctx, x + radius, captionBase - S.statCaption * 0.36, radius, cell.side);
+      captionX += radius * 2 + S.statCaption * 0.5;
+    }
+    caption(ctx, cell.label, captionX, captionBase, S.statCaption);
+    ctx.font = font(700, S.statValue);
+    const fit = Math.min(1, (cellW - S.statCaption * 2.4) / Math.max(numberWidth(ctx, cell.text), 1));
+    ctx.font = font(700, S.statValue * fit);
+    ctx.fillStyle = cell.color;
+    drawNumber(ctx, cell.text, x, valueBase);
+  });
+  if (L.logoInBand) {
+    drawLogo(ctx, scene.logo, B.x + B.w, (captionBase - S.statCaption + valueBase) / 2 - S.logo / 2, S.logo, "right");
+  } else {
+    drawLogo(ctx, scene.logo, B.x + B.w, valueBase + S.statValue * 0.75, S.logo, "right");
+  }
 
   if (t >= timeline.replaySeconds) drawOutro(ctx, t, scene, L, { totals, totalsUsd, unitText, entry, role });
 }

@@ -152,9 +152,10 @@ every endpoint called, and each replay prints its own requests and CU.
 - **Price or market cap.** The Chart tab switches the axis. Market cap is
   price × circulating supply from Token Market Data, so candles keep their
   shape and the labels, price tag, average-cost line and popups read in MC.
-- **Trader header.** The token's logo and ticker, the wallet's avatar and its
-  Birdeye label ("trader" when it has none), live PnL with its multiple pill
-  (`17x`), then Invested, Entry MC and Sold. The definitions are in
+- **Trader layout.** The token's logo and ticker, the wallet's avatar and its
+  Birdeye label ("trader" when it has none) and live PnL with its multiple
+  pill (`17x`) on top; Invested, Entry MC and Sold along the bottom with the
+  logo; the chart gets everything in between. The definitions are in
   [PNL_METHODOLOGY.md](./docs/PNL_METHODOLOGY.md#card-vocabulary).
 - **Every fill plotted.** Each fill appears as a B or S badge on its candle,
   alongside an average-cost line and a live price tag. Fills inside missing
